@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
+import TopNav from '../components/TopNav';
 
 export default function UploadClient() {
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState('');
   const [link, setLink] = useState('');
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserSupabaseClient();
 
   function handleFileChange(event) {
     const nextFile = event.target.files?.[0] || null;
@@ -51,6 +52,7 @@ export default function UploadClient() {
     <main className={shell.shell}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
+          <TopNav />
           <div className={shared.heroPanel}>
             <h2 className={shared.pageTitle}>Sign and Secure Your Document</h2>
             <p className={`${shared.pageSubtitle} ${shared.heroSubtitle}`}>
@@ -71,7 +73,7 @@ export default function UploadClient() {
             {link && (
               <div className={shared.cardBlock} style={{ marginTop: '1rem' }}>
                 <p className={shared.cardTitle}>Download link</p>
-                <a href={link} target="_blank" rel="noreferrer" className={shared.linkButton}>Open file</a>
+                <a href={link} target="_blank" rel="noreferrer" className={shared.button}>Open file</a>
                 <p className={shared.cardText}>The link will expire in 60 seconds.</p>
               </div>
             )}

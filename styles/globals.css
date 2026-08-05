@@ -5,6 +5,7 @@ body {
   min-height: 100%;
   background: #f8fafc;
   color: #0f172a;
+  font-family: Inter, system-ui, sans-serif;
 }
 
 * {
@@ -12,19 +13,31 @@ body {
 }
 
 a {
-  color: #2563eb;
+  color: inherit;
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
 }
-input,
 button,
+input,
 textarea,
 select {
   font: inherit;
 }
 button {
   cursor: pointer;
+}
+
+:root {
+  color-scheme: light;
+  color: #111827;
+  background: #f8fafc;
+  --maroon: #7f1d1d;
+  --maroon-dark: #581c1c;
+  --accent: #f8f0f0;
+  --surface: #ffffff;
+  --surface-strong: #f8fafc;
+  --muted: #475569;
 }

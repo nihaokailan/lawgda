@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
+import TopNav from '../components/TopNav';
 
 export default function VerifyPage() {
   const [file, setFile] = useState(null);
@@ -39,6 +40,7 @@ export default function VerifyPage() {
     <main className={shell.shell}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
+          <TopNav />
           <h1 className={shared.pageTitle}>Verify Document</h1>
           <p className={shared.pageSubtitle}>Upload a file and compute its SHA-256 hash to compare with your trusted evidence record.</p>
           <div className={shared.sectionCard}>
@@ -55,7 +57,7 @@ export default function VerifyPage() {
             {hash && (
               <div className={shared.cardBlock} style={{ marginTop: '1rem' }}>
                 <h3 className={shared.cardTitle}>SHA-256 hash</h3>
-                <pre style={{ whiteSpace: 'break-spaces', margin: 0 }}>{hash}</pre>
+                <pre className={shared.hashBlock}>{hash}</pre>
               </div>
             )}
           </div>

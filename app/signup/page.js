@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
+import TopNav from '../components/TopNav';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ export default function SignupPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserSupabaseClient();
 
   async function handleSignup(e) {
     e.preventDefault();
@@ -27,14 +28,27 @@ export default function SignupPage() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/signin`,
+      },
     });
 
     if (error) {
       setError(true);
-      setMessage(error.message);
+      setMessage(
+        error.message.includes('rate limit')
+          ? 'Too many emails sent. Wait a few minutes and try again.'
+          : error.message
+      );
+      return;
+    }
+
+    if (data && !data.session) {
+      setError(false);
+      setMessage('Account created. Check your inbox and click the verification link to sign in.');
       return;
     }
 
@@ -45,6 +59,7 @@ export default function SignupPage() {
     <main className={shell.shell}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
+          <TopNav />
           <h1 className={shared.pageTitle}>Sign Up</h1>
           <p className={shared.pageSubtitle}>Create your account to track legal documents, cases, and evidence workflows securely.</p>
           <div className={shared.sectionCard}>

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
+import TopNav from '../components/TopNav';
 
 export default function CasesClient() {
   const [cases, setCases] = useState([]);
@@ -12,7 +13,7 @@ export default function CasesClient() {
   const [title, setTitle] = useState('');
   const [status, setStatus] = useState('Draft');
   const [description, setDescription] = useState('');
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserSupabaseClient();
 
   async function loadCases() {
     setLoading(true);
@@ -57,6 +58,7 @@ export default function CasesClient() {
     <main className={shell.shell}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
+          <TopNav />
           <h1 className={shared.pageTitle}>Cases</h1>
           <p className={shared.pageSubtitle}>Review and manage your legal case workflows securely.</p>
           <div className={shared.sectionCard}>

@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
+import TopNav from '../components/TopNav';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -13,23 +14,28 @@ export default function SignInPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserSupabaseClient();
 
   async function handleSignIn(e) {
     e.preventDefault();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setError(true);
-      setMessage(error.message);
+      setMessage(
+        error.message.includes('email not confirmed')
+          ? 'Please confirm your email before signing in. Check your inbox for the confirmation link.'
+          : error.message
+      );
       return;
     }
     router.push('/dashboard');
   }
 
   return (
-    <main className={shell.shell}>
+    <main className={`${shell.shell} ${shell.signinShell}`}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
+          <TopNav />
           <h1 className={shared.pageTitle}>Sign In</h1>
           <p className={shared.pageSubtitle}>Access your secure document workspace and evidence tracking dashboard.</p>
           <div className={shared.sectionCard}>
