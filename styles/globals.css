@@ -1,0 +1,30 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}

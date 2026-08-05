@@ -1,0 +1,36 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+:root{
+  --maroon:#6a0f1a;
+  --maroon-dark:#4f0b13;
+  --accent:#f3efe6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}

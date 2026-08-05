@@ -1,0 +1,47 @@
+Supabase setup and migration guide for this project
+
+1) Environment
+- Copy `.env.local.example` to `.env.local` and fill in `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Restart the Next.js dev server after editing env vars.
+
+2) Run SQL migration
+- Open your Supabase project → SQL editor.
+- Open the file `supabase/migrations/001_init.sql` in this repo and run the SQL there.
+- This creates the `cases` and `documents` tables and adds basic Row Level Security (RLS) policies so each user only accesses their own rows.
+
+3) Create storage bucket
+- In Supabase UI → Storage → Create bucket:
+  - Name: `evidence`
+  - Privacy: Private (recommended)
+
+4) Storage policy (allow authenticated upload)
+- In Storage → Policies, create a policy to allow uploads for authenticated users. Example condition:
+  - `auth.role() = 'authenticated'`
+- If you prefer SQL-like policy, configure it in the Storage UI or via the Supabase CLI.
+
+5) Test the flow locally
+- Start the app:
+```
+npm run dev
+```
+- In the running app:
+  - Sign up at `/signup`
+  - Sign in at `/signin`
+  - Visit `/upload` and upload a PDF or DOCX
+
+6) Optional: link storage objects to `documents` table
+- After uploading to the `evidence` bucket (client-side), write a row into `documents` with the path returned by Supabase storage and the current user's id. Example insert via server API:
+
+```sql
+insert into documents (user_id, bucket, path, filename) values ('<user-id>', 'evidence', 'documents/1600000000-file.pdf', 'file.pdf');
+```
+
+7) Deploy
+- Add the same env vars to your hosting provider (Vercel, Netlify, etc):
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` (only if needed server-side)
+
+If you want, I can:
+- Create a small server API route to write `documents` rows after successful uploads.
+- Add a migration runner script (using `supabase` CLI) and a `supabase/config` folder.

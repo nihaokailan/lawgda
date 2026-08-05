@@ -1,0 +1,53 @@
+/* CSS variables moved to app/globals.css */
+
+.nav{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:1rem 2rem;
+  background:var(--maroon-dark);
+  color:var(--accent);
+  font-weight:600;
+}
+.logo{
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing:2px;
+}
+.navLinks a{ color:var(--accent); margin-left:1rem; text-decoration:none }
+
+.hero{
+  background: linear-gradient(0deg, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px), var(--maroon);
+  background-size: 40px 40px, 40px 40px, auto;
+  color:var(--accent);
+  padding:6rem 2rem;
+  text-align:center;
+}
+.hero h1{
+  font-size:3rem;
+  margin:0 0 1rem 0;
+  font-family: 'Georgia', serif;
+}
+.hero p{ max-width:760px; margin:0 auto 1.5rem; color:#f7e9e9 }
+.btnRow{ display:flex; gap:1rem; justify-content:center }
+.btn{ background:transparent; border:1px solid rgba(255,255,255,0.8); color:var(--accent); padding:.75rem 1.25rem; border-radius:4px; text-decoration:none }
+.btn.primary{ background:var(--accent); color:var(--maroon); border:none }
+
+.section{
+  padding:3rem 2rem;
+  background:#f4f4f4;
+}
+.container{ max-width:1100px; margin:0 auto }
+.features{ display:grid; grid-template-columns:repeat(3,1fr); gap:1rem }
+.card{ background:white; padding:1.25rem; border-radius:6px; box-shadow:0 1px 3px rgba(0,0,0,0.06) }
+.card h4{ margin:0 0 .5rem }
+.card p{ margin:0; color:#333 }
+
+.process{ padding:3rem 2rem; background:white }
+.stepRow{ display:flex; gap:1rem; align-items:flex-start }
+.step{ background:#fff6f6; padding:1rem; border-radius:6px; flex:1 }
+.step h3{ margin:0 0 .5rem }
+
+@media (max-width:900px){
+  .features{ grid-template-columns:1fr }
+  .hero h1{ font-size:2rem }
+}

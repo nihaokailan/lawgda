@@ -1,0 +1,161 @@
+.pageShell {
+  padding: 3rem;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #111827;
+}
+
+.panel {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.sectionCard {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  padding: 2rem;
+  margin-top: 2rem;
+}
+
+.pageTitle {
+  font-size: clamp(2rem, 2.5vw, 3rem);
+  margin: 0 0 0.75rem;
+  font-family: Georgia, serif;
+}
+
+.pageSubtitle,
+.helpText {
+  margin: 0;
+  color: #475569;
+  line-height: 1.75;
+}
+
+.formGrid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.fieldLabel {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.buttonGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.heroPanel {
+  background: linear-gradient(135deg, rgba(143, 32, 70, 0.98), rgba(196, 51, 80, 0.96));
+  color: var(--accent);
+  border-radius: 24px;
+  padding: 2rem;
+}
+
+.heroPanel h2,
+.heroPanel p {
+  margin: 0;
+}
+
+.heroPanel p {
+  opacity: 0.92;
+  margin-top: 0.75rem;
+}
+
+.heroSubtitle {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.button,
+.linkButton {
+  border-radius: 999px;
+  font-weight: 700;
+  padding: 0.95rem 1.6rem;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.button {
+  background: var(--maroon);
+  color: var(--accent);
+  border-color: var(--maroon);
+}
+
+.button:hover,
+.linkButton:hover {
+  transform: translateY(-1px);
+}
+
+.linkButton {
+  background: transparent;
+  color: var(--maroon);
+  border-color: rgba(106, 15, 26, 0.2);
+}
+
+.message {
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+.messageError {
+  color: #991b1b;
+}
+
+.messageSuccess {
+  color: #047857;
+}
+
+.cardGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.cardBlock {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.cardTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.cardText {
+  margin: 0;
+  color: #475569;
+}
+
+@media (min-width: 768px) {
+  .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .cardGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
