@@ -135,7 +135,7 @@
 }
 
 .profileLocked {
-  background: #e1e4e8 !important;
+  background: var(--surface-alt) !important;
   color: var(--muted);
   cursor: not-allowed;
   opacity: 1;
@@ -152,7 +152,7 @@
   padding: 1.25rem;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: #e1e4e8;
+  background: var(--surface-alt);
 }
 
 .infoCard {
