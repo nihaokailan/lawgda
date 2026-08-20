@@ -89,6 +89,7 @@
 }
 
 .mainPanel {
+  position: relative;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(106, 15, 26, 0.14);
   border-radius: 20px;
@@ -127,8 +128,10 @@
 }
 
 .profileToolbar {
-  display: flex;
-  justify-content: flex-end;
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 2;
 }
 
 .infoCard {
