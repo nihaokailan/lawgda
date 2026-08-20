@@ -134,6 +134,17 @@
   z-index: 2;
 }
 
+.profileLocked {
+  background: var(--surface-alt);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.profileEditable {
+  background: #fff;
+  color: var(--text);
+}
+
 .infoCard {
   border: 1px solid var(--border);
   background: var(--surface-alt);

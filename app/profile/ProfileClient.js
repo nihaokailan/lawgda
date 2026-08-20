@@ -141,12 +141,12 @@ export default function ProfileClient({ initialProfile, email }) {
         <form onSubmit={handleSave} className={shared.formGrid}>
           <label className={shared.fieldLabel}>
             Organization ID
-            <input className={shared.input} value={organizationId} onChange={(event) => setOrganizationId(event.target.value)} disabled={!isAdmin || !isEditing} />
+            <input className={`${shared.input} ${styles.profileLocked}`} value={organizationId || 'Not assigned yet'} disabled />
           </label>
           <label className={shared.fieldLabel}>
             First Name
             <input
-              className={shared.input}
+              className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
               value={firstName}
               onChange={(event) => setFirstName(event.target.value)}
               disabled={!isEditing}
@@ -155,38 +155,34 @@ export default function ProfileClient({ initialProfile, email }) {
           </label>
           <label className={shared.fieldLabel}>
             Last Name
-            <input className={shared.input} value={lastName} onChange={(event) => setLastName(event.target.value)} disabled={!isEditing} required />
+            <input className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`} value={lastName} onChange={(event) => setLastName(event.target.value)} disabled={!isEditing} required />
           </label>
           <label className={shared.fieldLabel}>
             Current Role
-            <select className={shared.select} value={role} onChange={(event) => setRole(event.target.value)} disabled>
-              <option value="admin">Admin</option>
-              <option value="lawyer">Lawyer</option>
-              <option value="staff">Staff</option>
-            </select>
+            <input className={`${shared.input} ${styles.profileLocked}`} value={ROLE_LABELS[role] ?? role} disabled />
           </label>
           <label className={shared.fieldLabel}>
             Change Password
-            <input className={shared.input} type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setCodeSent(false); setCodeVerified(false); }} disabled={!isEditing} placeholder="Leave blank to keep current password" minLength={6} />
+            <input className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`} type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setCodeSent(false); setCodeVerified(false); }} disabled={!isEditing} placeholder="Leave blank to keep current password" minLength={6} />
           </label>
           <label className={shared.fieldLabel}>
             Confirm Password
-            <input className={shared.input} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={!isEditing || !newPassword} minLength={6} />
+            <input className={`${shared.input} ${isEditing && newPassword ? styles.profileEditable : styles.profileLocked}`} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={!isEditing || !newPassword} minLength={6} />
           </label>
           <label className={shared.fieldLabel}>
             Admin Request
-            <input className={shared.input} value={initialProfile.admin_request_status ?? 'none'} disabled />
+            <input className={`${shared.input} ${styles.profileLocked}`} value={initialProfile.admin_request_status ?? 'none'} disabled />
           </label>
           <label className={shared.fieldLabel}>
             Email
-            <input className={shared.input} type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} disabled={!isEditing} required />
+            <input className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`} type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} disabled={!isEditing} required />
           </label>
           {newPassword && isEditing && (
             <>
               {codeSent && !codeVerified && (
                 <label className={shared.fieldLabel}>
                   Confirmation code
-                  <input className={shared.input} value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} inputMode="numeric" />
+                  <input className={`${shared.input} ${styles.profileEditable}`} value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} inputMode="numeric" />
                 </label>
               )}
             </>
