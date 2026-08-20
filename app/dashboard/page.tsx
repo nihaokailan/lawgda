@@ -30,6 +30,12 @@ function extractTitle(record: Record<string, unknown>) {
   return (resolved as string | undefined) ?? 'Untitled document';
 }
 
+function getFirstName(fullName: string | null | undefined, email: string | null | undefined) {
+  const firstName = fullName?.trim().split(/\s+/)[0];
+  if (firstName) return firstName;
+  return email?.split('@')[0] ?? 'there';
+}
+
 async function loadDashboardData() {
   const supabase = createSupabaseServerClient();
   const docsResult = await supabase.from('documents').select('*').order('created_at', { ascending: false }).limit(100);
@@ -70,7 +76,7 @@ export default async function DashboardPage() {
     <WorkspaceShell
       profile={profile}
       title="LAWDGA Dashboard"
-      subtitle={`Welcome back, ${user.email}. Role: ${roleLabel}.`}
+      subtitle={`Welcome back, ${getFirstName(profile.full_name, user.email)}. Role: ${roleLabel}.`}
     >
       <DashboardClient initialDocuments={recentDocuments} initialMetrics={metrics} />
     </WorkspaceShell>

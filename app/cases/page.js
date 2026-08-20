@@ -76,11 +76,13 @@ export default async function CasesPage() {
       };
     });
 
+  const firstName = profile.full_name?.trim().split(/\s+/)[0] || user.email?.split('@')[0] || 'there';
+
   return (
     <WorkspaceShell
       profile={profile}
       title="Documents"
-      subtitle={`Welcome back, ${user.email}. Role: ${ROLE_LABELS[profile.role] ?? profile.role}.`}
+      subtitle={`Welcome back, ${firstName}. Role: ${ROLE_LABELS[profile.role] ?? profile.role}.`}
     >
       <DocumentsWorkspaceClient documents={documents} />
     </WorkspaceShell>
