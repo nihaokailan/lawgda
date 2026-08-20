@@ -145,6 +145,14 @@
   color: var(--text);
 }
 
+.profileFormSurface {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-alt);
+}
+
 .infoCard {
   border: 1px solid var(--border);
   background: var(--surface-alt);

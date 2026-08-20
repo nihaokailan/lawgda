@@ -137,7 +137,7 @@ export default function ProfileClient({ initialProfile, email }) {
         </button>
       </div>
 
-      <div className={shared.sectionCard} style={{ marginTop: '1rem' }}>
+      <div className={styles.profileFormSurface}>
         <form onSubmit={handleSave} className={shared.formGrid}>
           <label className={shared.fieldLabel}>
             Organization ID
