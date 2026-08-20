@@ -1,0 +1,160 @@
+.docsShell {
+  background: #fff;
+  border: 1px solid #e7eaf3;
+  border-radius: 16px;
+  padding: 1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #273246;
+  font-size: 1.6rem;
+}
+
+.topActions {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.verifyButton,
+.prepareButton {
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.verifyButton {
+  color: #8a1020;
+  border: 1px solid #8a1020;
+  background: #fff;
+}
+
+.prepareButton {
+  color: #fff;
+  border: 1px solid #8a1020;
+  background: #8a1020;
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+}
+
+.summaryCard {
+  border: 1px solid #e4e8f4;
+  border-radius: 10px;
+  background: #fafbff;
+  padding: 0.6rem 0.7rem;
+}
+
+.summaryLabel {
+  margin: 0;
+  color: #6a738a;
+  font-size: 0.85rem;
+}
+
+.summaryValue {
+  margin: 0.3rem 0 0;
+  color: #2f3748;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.filterRow {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.filterButton {
+  border: 1px solid #d7dceb;
+  background: #fff;
+  color: #55647f;
+  border-radius: 999px;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+}
+
+.filterButtonActive {
+  color: #fff;
+  border-color: #8a1020;
+  background: #8a1020;
+}
+
+.searchRow {
+  display: block;
+}
+
+.searchInput {
+  width: 100%;
+  border: 1px solid #cfd5e3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.7rem 0.8rem;
+}
+
+.resultsWrap {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.emptyState {
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed #d2d7e7;
+  border-radius: 10px;
+  color: #657089;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  border-bottom: 1px solid #e7eaf3;
+  padding: 0.7rem 0.55rem;
+}
+
+.table th {
+  color: #6c7389;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.statusPill {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #eff4ff;
+  color: #3b4b6d;
+  padding: 0.25rem 0.65rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.openLink {
+  color: #8a1020;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

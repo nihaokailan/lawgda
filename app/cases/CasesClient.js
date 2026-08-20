@@ -1,100 +1,214 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import WorkspaceShell from '../components/WorkspaceShell';
 import shared from '../../styles/shared.module.css';
-import shell from '../../styles/pageShell.module.css';
-import TopNav from '../components/TopNav';
+import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { ROLE_LABELS } from '../../lib/roles';
+import FolderBreadcrumbs from '../components/FolderBreadcrumbs';
+import FolderGrid from '../components/FolderGrid';
+import DocumentList from '../components/DocumentList';
+import FilePreview from '../components/FilePreview';
 
-export default function CasesClient() {
-  const [cases, setCases] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function CasesClient({ profile }) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+  const [breadcrumbs, setBreadcrumbs] = useState([{ id: null, name: 'Root' }]);
+  const [folders, setFolders] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewDocument, setPreviewDocument] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [title, setTitle] = useState('');
-  const [status, setStatus] = useState('Draft');
-  const [description, setDescription] = useState('');
-  const supabase = createBrowserSupabaseClient();
+  const [error, setError] = useState(false);
 
-  async function loadCases() {
+  const folderQuery = useMemo(() => {
+    if (!currentFolderId) {
+      return '';
+    }
+    return `?parentId=${encodeURIComponent(currentFolderId)}`;
+  }, [currentFolderId]);
+
+  const loadRepository = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('cases')
-      .select('id,title,status,description')
-      .order('created_at', { ascending: false });
-    if (error) {
-      setMessage(`Unable to load cases: ${error.message}`);
+    setError(false);
+
+    const [foldersResponse, documentsResponse] = await Promise.all([
+      fetch(`/api/folders${folderQuery}`),
+      fetch(`/api/documents${folderQuery}`),
+    ]);
+
+    const foldersPayload = await foldersResponse.json();
+    const documentsPayload = await documentsResponse.json();
+
+    if (!foldersResponse.ok) {
+      setError(true);
+      setMessage(foldersPayload.error || 'Unable to load folders.');
       setLoading(false);
       return;
     }
-    setCases(data ?? []);
+
+    if (!documentsResponse.ok) {
+      setError(true);
+      setMessage(documentsPayload.error || 'Unable to load documents.');
+      setLoading(false);
+      return;
+    }
+
+    setFolders(foldersPayload.folders || []);
+    setDocuments(documentsPayload.documents || []);
+    setBreadcrumbs(foldersPayload.breadcrumbs || [{ id: null, name: 'Root' }]);
     setLoading(false);
-  }
+  }, [folderQuery]);
 
   useEffect(() => {
-    loadCases();
-  }, []);
+    loadRepository();
+  }, [loadRepository]);
 
-  async function handleCreateCase(e) {
-    e.preventDefault();
-    if (!title.trim()) {
-      setMessage('Please provide a case title.');
+  async function handleCreateFolder(event) {
+    event.preventDefault();
+    setError(false);
+    setMessage('');
+
+    const trimmedName = newFolderName.trim();
+    if (!trimmedName) {
+      setError(true);
+      setMessage('Folder name is required.');
       return;
     }
 
-    const { error } = await supabase.from('cases').insert([{ title, status, description }]);
-    if (error) {
-      setMessage(`Unable to create case: ${error.message}`);
+    const response = await fetch('/api/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: trimmedName,
+        parentId: currentFolderId,
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(true);
+      setMessage(payload.error || 'Unable to create folder.');
       return;
     }
 
-    setTitle('');
-    setDescription('');
-    setStatus('Draft');
-    setMessage('Case created successfully.');
-    loadCases();
+    setNewFolderName('');
+    setMessage('Folder created successfully.');
+    loadRepository();
+  }
+
+  async function handleUpload(event) {
+    event.preventDefault();
+    setError(false);
+    setMessage('');
+
+    if (!selectedFile) {
+      setError(true);
+      setMessage('Select a file to upload.');
+      return;
+    }
+
+    if (!profile.org_id) {
+      setError(true);
+      setMessage('Your account is not assigned to an organization yet.');
+      return;
+    }
+
+    const storagePath = `${profile.org_id}/${Date.now()}-${selectedFile.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from('org-documents')
+      .upload(storagePath, selectedFile, { upsert: false, cacheControl: '3600' });
+
+    if (uploadError) {
+      setError(true);
+      setMessage(`Upload failed: ${uploadError.message}`);
+      return;
+    }
+
+    const response = await fetch('/api/documents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folderId: currentFolderId,
+        name: selectedFile.name,
+        bucket: 'org-documents',
+        storagePath,
+        mimeType: selectedFile.type || 'application/octet-stream',
+        sizeBytes: selectedFile.size,
+      }),
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(true);
+      setMessage(payload.error || 'File uploaded, but metadata save failed.');
+      return;
+    }
+
+    setSelectedFile(null);
+    setMessage('File uploaded successfully.');
+    loadRepository();
   }
 
   return (
-    <main className={shell.shell}>
-      <div className={shell.content}>
-        <div className={shared.pageShell}>
-          <TopNav />
-          <h1 className={shared.pageTitle}>Cases</h1>
-          <p className={shared.pageSubtitle}>Review and manage your legal case workflows securely.</p>
-          <div className={shared.sectionCard}>
-            <form onSubmit={handleCreateCase} className={shared.formGrid}>
-              <label className={shared.fieldLabel}>
-                Case title
-                <input className={shared.input} value={title} onChange={(e) => setTitle(e.target.value)} required />
-              </label>
-              <label className={shared.fieldLabel}>
-                Status
-                <select className={shared.select} value={status} onChange={(e) => setStatus(e.target.value)}>
-                  <option>Draft</option>
-                  <option>Pending</option>
-                  <option>Signed</option>
-                  <option>Filed</option>
-                </select>
-              </label>
-              <label className={shared.fieldLabel}>
-                Description
-                <textarea className={shared.textarea} value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-              </label>
-              <button type="submit" className={shared.button}>Create case</button>
-            </form>
-            {message && <p className={`${shared.message} ${shared.messageSuccess}`}>{message}</p>}
-          </div>
-          <div className={shared.cardGrid} style={{ marginTop: '2rem' }}>
-            {cases.map((item) => (
-              <div key={item.id} className={shared.cardBlock}>
-                <h3 className={shared.cardTitle}>{item.title}</h3>
-                <p className={shared.cardText}>Status: {item.status}</p>
-                {item.description && <p className={shared.cardText}>{item.description}</p>}
-              </div>
-            ))}
-          </div>
-        </div>
+    <WorkspaceShell
+      profile={profile}
+      title="Folder Repository"
+      subtitle={`Role: ${ROLE_LABELS[profile.role] ?? profile.role}. Access is scoped to your organization.`}
+    >
+      <div className={shared.sectionCard} style={{ marginTop: 0 }}>
+        <FolderBreadcrumbs
+          crumbs={breadcrumbs}
+          onSelect={(folderId) => {
+            setCurrentFolderId(folderId);
+          }}
+        />
+
+        <form onSubmit={handleCreateFolder} className={shared.formGrid}>
+          <label className={shared.fieldLabel}>
+            Create folder
+            <input
+              className={shared.input}
+              value={newFolderName}
+              onChange={(event) => setNewFolderName(event.target.value)}
+              placeholder="e.g. Litigation / 2026 / Pleadings"
+            />
+          </label>
+          <button className={shared.button} type="submit">Create Folder</button>
+        </form>
+
+        <form onSubmit={handleUpload} className={shared.formGrid}>
+          <label className={shared.fieldLabel}>
+            Upload file
+            <input
+              className={shared.input}
+              type="file"
+              onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
+            />
+          </label>
+          <button className={shared.button} type="submit">Upload to Current Folder</button>
+        </form>
+
+        {message && (
+          <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>
+            {message}
+          </p>
+        )}
       </div>
-    </main>
+
+      <div className={shared.sectionCard}>
+        <h2 className={shared.cardTitle}>Folders</h2>
+        {loading ? <p className={shared.helpText}>Loading...</p> : <FolderGrid folders={folders} onOpen={setCurrentFolderId} />}
+      </div>
+
+      <div className={shared.sectionCard}>
+        <h2 className={shared.cardTitle}>Files</h2>
+        {loading ? <p className={shared.helpText}>Loading...</p> : <DocumentList documents={documents} onPreview={setPreviewDocument} />}
+      </div>
+
+      {previewDocument && <FilePreview document={previewDocument} onClose={() => setPreviewDocument(null)} />}
+    </WorkspaceShell>
   );
 }

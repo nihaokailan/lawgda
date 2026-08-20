@@ -1,9 +1,9 @@
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 
-export async function POST() {
-  const supabase = createServerActionClient({ cookies });
+export async function POST(request) {
+  const supabase = createSupabaseServerClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect('/signin');
+  const redirectUrl = new URL('/signin', request.url);
+  return NextResponse.redirect(redirectUrl);
 }

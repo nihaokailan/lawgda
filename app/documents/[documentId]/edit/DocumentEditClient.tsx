@@ -1,0 +1,340 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createSupabaseBrowserClient } from '../../../../lib/supabase/client';
+import styles from '../../../../styles/dashboard.module.css';
+
+type SigningRequest = {
+  id: string;
+  signer_name: string;
+  signer_email: string;
+  signing_order: number;
+  status: string;
+  created_at: string;
+  signed_at: string | null;
+  viewed_at: string | null;
+};
+
+type AuditEntry = {
+  id: string;
+  event_type: string;
+  created_at: string;
+  actor_user_id: string | null;
+  details: Record<string, unknown> | null;
+};
+
+function toHex(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function uploadWithBucketFallback(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  filePath: string,
+  file: File
+) {
+  const buckets = ['secure_docs', 'evidence', 'org-documents'];
+  let lastError = 'Upload failed.';
+
+  for (const bucket of buckets) {
+    const { error } = await supabase.storage.from(bucket).upload(filePath, file, {
+      upsert: false,
+      cacheControl: '3600',
+      contentType: file.type || 'application/pdf',
+    });
+
+    if (!error) {
+      return { bucket, error: null as string | null };
+    }
+
+    lastError = error.message;
+    if (!error.message.toLowerCase().includes('bucket not found')) {
+      return { bucket: null, error: lastError };
+    }
+  }
+
+  return { bucket: null, error: lastError };
+}
+
+export default function DocumentEditClient({
+  document,
+  signingRequests: initialSigningRequests,
+  auditTrail: initialAuditTrail,
+}: {
+  document: {
+    id: string;
+    title: string;
+    status: string;
+    filePath: string;
+    bucket: string;
+    sha256Hash: string | null;
+    isOwner: boolean;
+    metadata: Record<string, unknown> | null;
+  };
+  signingRequests: SigningRequest[];
+  auditTrail: AuditEntry[];
+}) {
+  const router = useRouter();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [signingRequests, setSigningRequests] = useState<SigningRequest[]>(initialSigningRequests);
+  const [auditTrail, setAuditTrail] = useState<AuditEntry[]>(initialAuditTrail);
+  const [signerName, setSignerName] = useState('');
+  const [signerEmail, setSignerEmail] = useState('');
+  const [signingOrder, setSigningOrder] = useState(1);
+  const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSignedUrl() {
+      if (!document.filePath) {
+        setError(true);
+        setMessage('Document has no file path.');
+        return;
+      }
+
+      const { data, error: signedUrlError } = await supabase.storage
+        .from(document.bucket)
+        .createSignedUrl(document.filePath, 120);
+
+      if (!active) return;
+
+      if (signedUrlError) {
+        setError(true);
+        setMessage(`Unable to load preview: ${signedUrlError.message}`);
+        return;
+      }
+
+      setPreviewUrl(data?.signedUrl || '');
+    }
+
+    loadSignedUrl();
+
+    return () => {
+      active = false;
+    };
+  }, [document.bucket, document.filePath, supabase]);
+
+  async function refreshPanelData() {
+    const [reqResponse, auditResponse] = await Promise.all([
+      fetch(`/api/signing-requests?documentId=${encodeURIComponent(document.id)}`),
+      fetch(`/api/documents/${encodeURIComponent(document.id)}/audit`),
+    ]);
+
+    if (reqResponse.ok) {
+      const reqPayload = await reqResponse.json();
+      setSigningRequests(reqPayload.signingRequests || []);
+    }
+
+    if (auditResponse.ok) {
+      const auditPayload = await auditResponse.json();
+      setAuditTrail(auditPayload.auditTrail || []);
+    }
+  }
+
+  async function addSigner(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError(false);
+    setMessage('');
+
+    const response = await fetch('/api/signing-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documentId: document.id,
+        signerType: 'external',
+        signerName: signerName.trim(),
+        signerEmail: signerEmail.trim().toLowerCase(),
+        signingOrder,
+        enforceSequential: true,
+      }),
+    });
+
+    const payload = await response.json();
+    setBusy(false);
+
+    if (!response.ok) {
+      setError(true);
+      setMessage(payload.error || 'Unable to assign signer.');
+      return;
+    }
+
+    setSignerName('');
+    setSignerEmail('');
+    setSigningOrder(signingOrder + 1);
+    setMessage('Signer assigned successfully.');
+    await refreshPanelData();
+    router.refresh();
+  }
+
+  async function applyCertificate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!certificateFile) {
+      setError(true);
+      setMessage('Choose a certificate file first.');
+      return;
+    }
+
+    setBusy(true);
+    setError(false);
+    setMessage('');
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setBusy(false);
+      setError(true);
+      setMessage('You must be signed in.');
+      return;
+    }
+
+    const certBuffer = await certificateFile.arrayBuffer();
+    const certHash = toHex(await crypto.subtle.digest('SHA-256', certBuffer));
+    const safeName = certificateFile.name.replace(/\s+/g, '-').toLowerCase();
+    const certPath = `${user.id}/certificates/${document.id}-${Date.now()}-${safeName}`;
+
+    const uploadResult = await uploadWithBucketFallback(supabase, certPath, certificateFile);
+    if (uploadResult.error || !uploadResult.bucket) {
+      setBusy(false);
+      setError(true);
+      setMessage(`Certificate upload failed: ${uploadResult.error}`);
+      return;
+    }
+
+    const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/certificate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        certificatePath: certPath,
+        certificateHash: certHash,
+      }),
+    });
+
+    const payload = await response.json();
+    setBusy(false);
+
+    if (!response.ok) {
+      setError(true);
+      setMessage(payload.error || 'Unable to apply DICT certificate.');
+      return;
+    }
+
+    setCertificateFile(null);
+    setMessage('DICT issued certificate applied and logged.');
+    await refreshPanelData();
+    router.refresh();
+  }
+
+  return (
+    <section className={styles.editorSplitLayout}>
+      <article className={styles.editorLeftPane}>
+        <header className={styles.editorPaneHeader}>
+          <h3 className={styles.sectionTitle}>{document.title}</h3>
+          <p className={styles.bannerSubtitle}>Status: {document.status}</p>
+        </header>
+        {previewUrl ? (
+          <iframe title={document.title} src={previewUrl} className={styles.editorPreviewFrame} />
+        ) : (
+          <p className={styles.emptyText}>Loading document preview...</p>
+        )}
+      </article>
+
+      <article className={styles.editorRightPane}>
+        <div className={styles.editorPaper}>
+          <h3 className={styles.sectionTitle}>Signer Assignment and Order</h3>
+          {document.isOwner ? (
+            <form onSubmit={addSigner} className={styles.modalBody}>
+              <label className={styles.modalLabel}>
+                Signer Name
+                <input className={styles.modalInput} value={signerName} onChange={(e) => setSignerName(e.target.value)} required />
+              </label>
+              <label className={styles.modalLabel}>
+                Signer Email
+                <input className={styles.modalInput} type="email" value={signerEmail} onChange={(e) => setSignerEmail(e.target.value)} required />
+              </label>
+              <label className={styles.modalLabel}>
+                Signing Order
+                <input className={styles.modalInput} type="number" min={1} value={signingOrder} onChange={(e) => setSigningOrder(Number(e.target.value) || 1)} required />
+              </label>
+              <button type="submit" className={styles.primaryActionButton} disabled={busy}>Assign Signer</button>
+            </form>
+          ) : (
+            <p className={styles.infoText}>Only the document owner can edit signer order.</p>
+          )}
+
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>Signer</th>
+                  <th>Order</th>
+                  <th>Status</th>
+                  <th>Signature Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {signingRequests.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>No signers assigned yet.</td>
+                  </tr>
+                )}
+                {signingRequests.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.signer_name} ({item.signer_email})</td>
+                    <td>{item.signing_order}</td>
+                    <td>{item.status}</td>
+                    <td>{item.signed_at ? new Date(item.signed_at).toLocaleString() : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className={styles.editorPaper}>
+          <h3 className={styles.sectionTitle}>DICT Issued Certificate</h3>
+          {document.isOwner ? (
+            <form onSubmit={applyCertificate} className={styles.modalBody}>
+              <label className={styles.modalLabel}>
+                Certificate File
+                <input
+                  className={styles.modalInput}
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => setCertificateFile(e.target.files?.[0] || null)}
+                />
+              </label>
+              <button type="submit" className={styles.secondaryActionButton} disabled={busy}>Apply Certificate</button>
+            </form>
+          ) : (
+            <p className={styles.infoText}>Certificate controls are owner-only.</p>
+          )}
+        </div>
+
+        <div className={styles.editorPaper}>
+          <h3 className={styles.sectionTitle}>Audit Trail and Signatures</h3>
+          <ul className={styles.activityList}>
+            {auditTrail.length === 0 && <li className={styles.activityItem}>No audit entries yet.</li>}
+            {auditTrail.map((entry) => (
+              <li key={entry.id} className={styles.activityItem}>
+                <strong>{entry.event_type}</strong>
+                <span className={styles.activityMeta}>{new Date(entry.created_at).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {message && <p className={error ? styles.alertError : styles.alertSuccess}>{message}</p>}
+      </article>
+    </section>
+  );
+}

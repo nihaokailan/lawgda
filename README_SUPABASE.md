@@ -6,8 +6,11 @@ Supabase setup and migration guide for this project
 
 2) Run SQL migration
 - Open your Supabase project → SQL editor.
-- Open the file `supabase/migrations/001_init.sql` in this repo and run the SQL there.
-- This creates the `cases` and `documents` tables and adds basic Row Level Security (RLS) policies so each user only accesses their own rows.
+- Open and run these files in order:
+  - `supabase/migrations/001_init.sql`
+  - `supabase/migrations/002_roles_profiles.sql`
+  - `supabase/migrations/003_external_signers_and_audit.sql`
+- This creates the `cases`, `documents`, `user_profiles`, `internal_user_invitations`, `signing_requests`, and `signing_audit_events` tables, including Row Level Security (RLS), role-aware policies, and external-signer token workflow support.
 
 3) Create storage bucket
 - In Supabase UI → Storage → Create bucket:
@@ -27,6 +30,13 @@ npm run dev
 - In the running app:
   - Sign up at `/signup`
   - Sign in at `/signin`
+  - Visit `/profile` to validate profile creation and role assignment
+  - (Optional) set one user to `administrator` directly in Supabase SQL editor:
+    ```sql
+    update user_profiles
+    set role = 'administrator'
+    where email = 'admin@example.com';
+    ```
   - Visit `/upload` and upload a PDF or DOCX
 
 6) Optional: link storage objects to `documents` table
@@ -40,6 +50,7 @@ insert into documents (user_id, bucket, path, filename) values ('<user-id>', 'ev
 - Add the same env vars to your hosting provider (Vercel, Netlify, etc):
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `NEXT_PUBLIC_SITE_URL` (used for invitation and external signer links)
   - `SUPABASE_SERVICE_ROLE_KEY` (only if needed server-side)
 
 If you want, I can:

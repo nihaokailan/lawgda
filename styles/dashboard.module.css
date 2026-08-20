@@ -1,0 +1,609 @@
+.banner {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(106, 15, 26, 0.08), rgba(255, 255, 255, 0.95));
+}
+
+.bannerLabel {
+  margin: 0;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.bannerTitle {
+  margin: 0.3rem 0 0;
+  color: var(--crimson-dark);
+  font-size: clamp(1.05rem, 1rem + 0.6vw, 1.4rem);
+}
+
+.bannerSubtitle {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+}
+
+.metricsGrid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.metricCard {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.metricHighlighted {
+  outline: 2px solid rgba(106, 15, 26, 0.24);
+}
+
+.metricIconGray,
+.metricIconAmber,
+.metricIconGreen,
+.metricIconBlue {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.metricIconGray {
+  background: #eceff3;
+  color: #4b5563;
+}
+
+.metricIconAmber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.metricIconGreen {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.metricIconBlue {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.metricLabel {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.metricValue {
+  margin: 0.3rem 0 0;
+  color: var(--text);
+  font-size: 1.6rem;
+}
+
+.quickActions {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: #fff;
+}
+
+.quickActionRow {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.primaryAction,
+.secondaryAction,
+.signCta {
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+  padding: 0.62rem 1rem;
+  border: 1px solid transparent;
+}
+
+.primaryActionButton,
+.secondaryActionButton {
+  border-radius: 999px;
+  font-weight: 700;
+  padding: 0.62rem 1rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.primaryActionButton {
+  background: var(--crimson);
+  color: #fff;
+}
+
+.secondaryActionButton {
+  border-color: rgba(106, 15, 26, 0.22);
+  color: var(--crimson-dark);
+  background: #fff;
+}
+
+.primaryActionButton:hover,
+.secondaryActionButton:hover {
+  transform: translateY(-1px);
+}
+
+.primaryAction {
+  background: var(--crimson);
+  color: #fff;
+}
+
+.secondaryAction {
+  border-color: rgba(106, 15, 26, 0.22);
+  color: var(--crimson-dark);
+  background: #fff;
+}
+
+.signCta {
+  background: #f59e0b;
+  color: #1f2937;
+}
+
+.primaryAction:hover,
+.secondaryAction:hover,
+.signCta:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.roleHint {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.workspaceGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.workspaceCard {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 1rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--crimson-dark);
+  font-size: 1.05rem;
+}
+
+.tableWrap {
+  margin-top: 0.85rem;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.65rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.monoCell {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.badgeDrafting {
+  background: #eceff3;
+  color: #374151;
+}
+
+.badgePending {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.badgeSigned {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.badgeFiled {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.menuRoot {
+  position: relative;
+}
+
+.menuTrigger {
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 34px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  cursor: pointer;
+}
+
+.menuTrigger::-webkit-details-marker {
+  display: none;
+}
+
+.menuContent {
+  position: absolute;
+  right: 0;
+  top: 110%;
+  z-index: 40;
+  min-width: 230px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(20, 17, 17, 0.12);
+  padding: 0.35rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.menuItem {
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.5rem 0.55rem;
+  font-size: 0.88rem;
+}
+
+.menuItem:hover {
+  text-decoration: none;
+  background: rgba(106, 15, 26, 0.08);
+}
+
+.activityPanel {
+  margin-top: 1rem;
+  border-top: 1px dashed var(--border);
+  padding-top: 0.8rem;
+}
+
+.activityTitle {
+  margin: 0;
+  color: var(--crimson-dark);
+}
+
+.activityList {
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.activityItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+.activityMeta {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.queueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.queueCount {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(106, 15, 26, 0.1);
+  color: var(--crimson-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.queueList {
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.queueItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.queueTitle {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.queueMeta {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
+.queueActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  padding: 1rem;
+}
+
+.modalCard,
+.modalCardLarge {
+  width: min(680px, 100%);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 1rem;
+  box-shadow: 0 24px 50px rgba(17, 24, 39, 0.2);
+}
+
+.modalCardLarge {
+  width: min(860px, 100%);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modalClose {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+}
+
+.modalBody {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.modalLabel {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.modalInput {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.58rem 0.65rem;
+  font: inherit;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.hashPanel {
+  margin-top: 0.8rem;
+  background: #f8fafc;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.alertSuccess,
+.alertError,
+.infoText {
+  margin-top: 0.8rem;
+  border-radius: 10px;
+  padding: 0.62rem 0.72rem;
+}
+
+.alertSuccess {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.alertError {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.infoText {
+  background: #eff6ff;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
+}
+
+.qrViewport {
+  width: 100%;
+  min-height: 260px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.editorSplitLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+.editorLeftPane,
+.editorRightPane {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  padding: 1rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.editorPaneHeader {
+  margin-bottom: 0.75rem;
+  min-width: 0;
+}
+
+.editorPreviewFrame {
+  width: 100%;
+  min-height: 72vh;
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.editorRightPane {
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+  overflow: hidden;
+}
+
+.editorPaper {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: #fcfcfd;
+  padding: 0.85rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.editorRightPane .modalBody,
+.editorRightPane .modalLabel,
+.editorRightPane .modalInput,
+.editorRightPane .tableWrap {
+  min-width: 0;
+}
+
+.editorRightPane .modalInput {
+  max-width: 100%;
+}
+
+.editorRightPane input[type='file'] {
+  width: 100%;
+}
+
+.editorRightPane .table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.editorRightPane .table th,
+.editorRightPane .table td {
+  word-break: break-word;
+  white-space: normal;
+}
+
+.editorRightPane .primaryActionButton,
+.editorRightPane .secondaryActionButton {
+  width: 100%;
+}
+
+.editorRightPane .activityItem {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .editorSplitLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .editorPreviewFrame {
+    min-height: 52vh;
+  }
+}
+
+.errorText {
+  margin: 0.7rem 0 0;
+  color: #b91c1c;
+}
+
+.emptyText {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+}
+
+@media (min-width: 1180px) {
+  .workspaceGrid {
+    grid-template-columns: 1.8fr 1fr;
+    align-items: start;
+  }
+}

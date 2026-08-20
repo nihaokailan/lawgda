@@ -1,25 +1,29 @@
 'use client';
-
 import Link from 'next/link';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
 import TopNav from '../components/TopNav';
+import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
-  const router = useRouter();
-  const supabase = createBrowserSupabaseClient();
+  const [loading, setLoading] = useState(false);
+  const supabase = createSupabaseBrowserClient();
+  
+  // Removed automatic session-based redirect from signin page
 
   async function handleSignIn(e) {
     e.preventDefault();
+    setLoading(true);
+    setError(false);
+    setMessage('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      setLoading(false);
       setError(true);
       setMessage(
         error.message.includes('email not confirmed')
@@ -28,7 +32,9 @@ export default function SignInPage() {
       );
       return;
     }
-    router.push('/dashboard');
+
+    setLoading(false);
+    window.location.replace('/dashboard');
   }
 
   return (
@@ -48,7 +54,7 @@ export default function SignInPage() {
                 Password
                 <input className={shared.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </label>
-              <button type="submit" className={shared.button}>Sign in</button>
+              <button type="submit" className={shared.button} disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
             </form>
             {message && (
               <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>
