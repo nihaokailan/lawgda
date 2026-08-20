@@ -135,14 +135,16 @@
 }
 
 .profileLocked {
-  background: var(--surface-alt);
+  background: #e1e4e8 !important;
   color: var(--muted);
   cursor: not-allowed;
+  opacity: 1;
 }
 
 .profileEditable {
-  background: #fff;
+  background: #fff !important;
   color: var(--text);
+  opacity: 1;
 }
 
 .profileFormSurface {
@@ -150,7 +152,7 @@
   padding: 1.25rem;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--surface-alt);
+  background: #e1e4e8;
 }
 
 .infoCard {
