@@ -1,11 +1,16 @@
 import styles from './styles.module.css';
 import Link from 'next/link';
-import TopNav from '../components/TopNav';
+import shared from '../../styles/shared.module.css';
 
 export default function Landing() {
   return (
     <main>
-      <TopNav />
+      <header className={shared.topNav}>
+        <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
+          <span className={shared.topNavBrandName}>LAWGDA</span>
+          <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
+        </Link>
+      </header>
 
       <section className={styles.hero}>
         <div className="container">

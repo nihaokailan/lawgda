@@ -31,6 +31,8 @@
   border-radius: 8px;
   font-weight: 700;
   text-decoration: none;
+  font: inherit;
+  cursor: pointer;
 }
 
 .verifyButton {

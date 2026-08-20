@@ -3,13 +3,21 @@
 import { useState } from 'react';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
-import TopNav from '../components/TopNav';
 
 export default function VerifyPage() {
   const [file, setFile] = useState(null);
   const [hash, setHash] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
+
+  function handleBack() {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.href = '/cases';
+  }
 
   async function handleFileChange(event) {
     const nextFile = event.target.files?.[0] ?? null;
@@ -40,7 +48,15 @@ export default function VerifyPage() {
     <main className={shell.shell}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
-          <TopNav />
+          <header className={shared.topNav}>
+            <div className={shared.topNavBrand}>
+              <span className={shared.topNavBrandName}>LAWGDA</span>
+              <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
+            </div>
+            <button type="button" className={shared.topNavLink} onClick={handleBack} aria-label="Go back to the previous page">
+              &larr; Go Back
+            </button>
+          </header>
           <h1 className={shared.pageTitle}>Verify Document</h1>
           <p className={shared.pageSubtitle}>Upload a file and compute its SHA-256 hash to compare with your trusted evidence record.</p>
           <div className={shared.sectionCard}>

@@ -89,6 +89,17 @@
   gap: 0.15rem;
 }
 
+.topNavBrandLink {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-decoration: none;
+}
+
+.topNavBrandLink:hover {
+  text-decoration: none;
+}
+
 .topNavBrandName {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.15rem;

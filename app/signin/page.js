@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
-import TopNav from '../components/TopNav';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
 export default function SignInPage() {
@@ -41,7 +40,15 @@ export default function SignInPage() {
     <main className={`${shell.shell} ${shell.signinShell}`}>
       <div className={shell.content}>
         <div className={shared.pageShell}>
-          <TopNav />
+          <header className={shared.topNav}>
+            <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
+              <span className={shared.topNavBrandName}>LAWGDA</span>
+              <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
+            </Link>
+            <Link href="/landing" className={shared.topNavLink}>
+              &larr; Go Back
+            </Link>
+          </header>
           <h1 className={shared.pageTitle}>Sign In</h1>
           <p className={shared.pageSubtitle}>Access your secure document workspace and evidence tracking dashboard.</p>
           <div className={shared.sectionCard}>

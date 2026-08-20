@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import UploadModal from '../components/UploadModal';
 import styles from '../../styles/documents.module.css';
 
 type DocumentRow = {
@@ -44,6 +45,7 @@ function matchesFilter(filter: string, row: DocumentRow) {
 export default function DocumentsWorkspaceClient({ documents }: { documents: DocumentRow[] }) {
   const [filter, setFilter] = useState('All Documents');
   const [query, setQuery] = useState('');
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const statusSummary = useMemo(() => {
     const counts: Record<string, number> = {
@@ -84,7 +86,9 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
         <h2 className={styles.sectionTitle}>Document Section</h2>
         <div className={styles.topActions}>
           <Link href="/verify" className={styles.verifyButton}>Verify Document</Link>
-          <Link href="/dashboard" className={styles.prepareButton}>Upload Document</Link>
+          <button type="button" className={styles.prepareButton} onClick={() => setIsUploadOpen(true)}>
+            Upload Document
+          </button>
         </div>
       </header>
 
@@ -149,6 +153,12 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
           </table>
         )}
       </div>
+
+      <UploadModal
+        open={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onUploaded={() => setIsUploadOpen(false)}
+      />
     </section>
   );
 }
