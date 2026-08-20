@@ -126,6 +126,11 @@
   gap: 0.75rem;
 }
 
+.profileToolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .infoCard {
   border: 1px solid var(--border);
   background: var(--surface-alt);
