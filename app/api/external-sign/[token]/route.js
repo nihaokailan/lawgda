@@ -59,7 +59,7 @@ export async function GET(request, { params }) {
   }
 
   const { data: requesterProfile } = await supabaseAdmin
-    .from('user_profiles')
+    .from('profiles')
     .select('full_name,email')
     .eq('user_id', signingRequest.requested_by)
     .single();

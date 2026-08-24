@@ -83,7 +83,7 @@ export default function UploadClient({ profile }) {
 
   const loadInternalUsers = useCallback(async () => {
     const { data } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('user_id,full_name,email,role')
       .in('role', ['admin', 'administrator', 'lawyer', 'staff'])
       .order('full_name', { ascending: true });

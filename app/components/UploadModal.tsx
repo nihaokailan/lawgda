@@ -17,6 +17,7 @@ type UploadModalProps = {
   open: boolean;
   onClose: () => void;
   onUploaded: (document: DashboardDocument) => void;
+  redirectOnUpload?: boolean;
 };
 
 function toHex(buffer: ArrayBuffer) {
@@ -38,7 +39,7 @@ async function safeReadJson(response: Response) {
   }
 }
 
-export default function UploadModal({ open, onClose, onUploaded }: UploadModalProps) {
+export default function UploadModal({ open, onClose, onUploaded, redirectOnUpload = true }: UploadModalProps) {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -127,7 +128,7 @@ export default function UploadModal({ open, onClose, onUploaded }: UploadModalPr
     setTitle('');
     setFile(null);
 
-    if (uploadedId) {
+    if (uploadedId && redirectOnUpload) {
       router.push(`/documents/${uploadedId}/edit`);
       router.refresh();
     }
@@ -150,7 +151,7 @@ export default function UploadModal({ open, onClose, onUploaded }: UploadModalPr
               className={styles.modalInput}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Deed of Sale - Santos Property"
+              placeholder="for ex. Deed of Sale - Santos Property"
               required
             />
           </label>

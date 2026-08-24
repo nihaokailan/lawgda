@@ -191,6 +191,10 @@
   overflow-x: auto;
 }
 
+.tableWrap:has(.menuRoot[open]) {
+  overflow: visible;
+}
+
 .table {
   width: 100%;
   min-width: 760px;
@@ -252,6 +256,10 @@
   position: relative;
 }
 
+.menuRoot[open] {
+  z-index: 50;
+}
+
 .menuTrigger {
   list-style: none;
   border: 1px solid var(--border);
@@ -282,6 +290,11 @@
   padding: 0.35rem;
   display: grid;
   gap: 0.2rem;
+}
+
+.menuContentUp {
+  top: auto;
+  bottom: 110%;
 }
 
 .menuItem {

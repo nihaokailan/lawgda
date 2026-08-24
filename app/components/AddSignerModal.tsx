@@ -38,7 +38,7 @@ export default function AddSignerModal({ open, documentId, onClose, onChanged }:
 
     if (ids.length > 0) {
       const { data: profileRows } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('user_id,email')
         .in('user_id', ids);
 

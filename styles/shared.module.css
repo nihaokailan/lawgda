@@ -137,6 +137,38 @@
   color: var(--crimson-dark);
 }
 
+.topNavSignIn {
+  background: var(--crimson);
+  color: #ffffff;
+  border-color: var(--crimson);
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(106, 15, 26, 0.15);
+}
+
+.topNavSignIn:hover {
+  background: var(--crimson-dark);
+  border-color: var(--crimson-dark);
+  color: #ffffff;
+}
+
+.topNavUserEmail {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.topNavSignOut {
+  color: #999;
+}
+
+.topNavSignOut:hover {
+  background: rgba(106, 15, 26, 0.08) !important;
+  color: var(--crimson);
+}
+
 .heroPanel {
   background: linear-gradient(135deg, rgba(106, 15, 26, 0.98), rgba(79, 11, 19, 0.96));
   color: var(--accent);

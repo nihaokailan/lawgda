@@ -144,7 +144,7 @@ export default function DashboardClient({
                     <td className={styles.monoCell}>{hashSnippet(document.sha256Hash)}</td>
                     <td>{formatDate(document.createdAt)}</td>
                     <td>
-                      <DocumentRowActionsDropdown document={document} />
+                      <DocumentRowActionsDropdown document={document} openUp={documents.length <= 3} />
                     </td>
                   </tr>
                 ))}

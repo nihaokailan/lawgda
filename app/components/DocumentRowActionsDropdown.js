@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import styles from '../../styles/dashboard.module.css';
 
-export default function DocumentRowActionsDropdown({ document }) {
+export default function DocumentRowActionsDropdown({ document, openUp = false }) {
   const certificateAvailable = document.status === 'Signed' || document.status === 'Filed';
 
   return (
     <details className={styles.menuRoot}>
       <summary className={styles.menuTrigger} aria-label="Open row actions">...</summary>
-      <div className={styles.menuContent}>
+      <div className={`${styles.menuContent} ${openUp ? styles.menuContentUp : ''}`}>
         <Link href={`/documents/${document.id || ''}`} className={styles.menuItem}>View Details</Link>
         {certificateAvailable && (
           <Link href={`/documents/${document.id || ''}/certificate`} className={styles.menuItem}>

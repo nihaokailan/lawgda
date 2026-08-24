@@ -27,7 +27,7 @@ export async function GET(request) {
   }
 
   const { data: profile } = await supabase
-    .from('user_profiles')
+    .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .single();
@@ -74,7 +74,7 @@ export async function POST(request) {
   }
 
   const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
+    .from('profiles')
     .select('role,full_name')
     .eq('user_id', user.id)
     .single();
@@ -107,7 +107,7 @@ export async function POST(request) {
 
   if (signerType === 'internal') {
     const { data: internalProfile, error: internalProfileError } = await supabase
-      .from('user_profiles')
+      .from('profiles')
       .select('full_name,email')
       .eq('user_id', internalSignerId)
       .single();

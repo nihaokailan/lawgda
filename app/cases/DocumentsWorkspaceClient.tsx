@@ -43,13 +43,14 @@ function matchesFilter(filter: string, row: DocumentRow) {
 }
 
 export default function DocumentsWorkspaceClient({ documents }: { documents: DocumentRow[] }) {
+  const [visibleDocuments, setVisibleDocuments] = useState(documents);
   const [filter, setFilter] = useState('All Documents');
   const [query, setQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const statusSummary = useMemo(() => {
     const counts: Record<string, number> = {
-      'All Documents': documents.length,
+      'All Documents': visibleDocuments.length,
       'Pending Signatures': 0,
       Completed: 0,
       Pending: 0,
@@ -59,7 +60,7 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
       Declined: 0,
     };
 
-    documents.forEach((row) => {
+    visibleDocuments.forEach((row) => {
       if (counts[row.status] !== undefined) {
         counts[row.status] += 1;
       }
@@ -69,16 +70,34 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
     });
 
     return counts;
-  }, [documents]);
+  }, [visibleDocuments]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return documents.filter((row) => {
+    return visibleDocuments.filter((row) => {
       if (!matchesFilter(filter, row)) return false;
       if (!q) return true;
       return row.title.toLowerCase().includes(q) || row.status.toLowerCase().includes(q) || row.ownerLabel.toLowerCase().includes(q);
     });
-  }, [documents, filter, query]);
+  }, [visibleDocuments, filter, query]);
+
+  function handleUploaded(document: { id: string | null; title: string; status: string; createdAt: string | null }) {
+    if (!document.id) return;
+
+    setVisibleDocuments((current) => [
+      {
+        id: document.id as string,
+        title: document.title,
+        status: 'Drafts',
+        createdAt: document.createdAt,
+        ownerLabel: 'You',
+        ownerInitials: 'YO',
+        tags: ['Legal'],
+      },
+      ...current.filter((row) => row.id !== document.id),
+    ]);
+    setIsUploadOpen(false);
+  }
 
   return (
     <section className={styles.docsShell}>
@@ -157,7 +176,8 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
       <UploadModal
         open={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        onUploaded={() => setIsUploadOpen(false)}
+        onUploaded={handleUploaded}
+        redirectOnUpload={false}
       />
     </section>
   );

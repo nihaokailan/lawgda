@@ -1,8 +1,61 @@
+'use client';
+
 import styles from './styles.module.css';
 import Link from 'next/link';
 import shared from '../../styles/shared.module.css';
+import { useEffect, useState } from 'react';
+import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
 export default function Landing() {
+  const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createSupabaseBrowserClient();
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+        setUserRole(profile?.role || null);
+      }
+      
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setUser(session?.user || null);
+      
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+        setUserRole(profile?.role || null);
+      } else {
+        setUserRole(null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [supabase.auth]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.replace('/landing');
+  };
+
   return (
     <main>
       <header className={shared.topNav}>
@@ -10,6 +63,32 @@ export default function Landing() {
           <span className={shared.topNavBrandName}>LAWGDA</span>
           <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
         </Link>
+        <nav className={shared.topNavActions}>
+          {user && (
+            <>
+              <Link href="/cases" className={shared.topNavLink}>Documents</Link>
+              <Link href="/dashboard" className={shared.topNavLink}>Workspace</Link>
+              {userRole === 'administrator' && (
+                <Link href="/admin" className={shared.topNavLink} style={{ background: 'rgba(106, 15, 26, 0.15)', fontWeight: 600 }}>
+                  Admin Panel
+                </Link>
+              )}
+              <span className={shared.topNavUserEmail}>{user.email}</span>
+              <button 
+                onClick={handleSignOut} 
+                className={`${shared.topNavLink} ${shared.topNavSignOut}`}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.75rem 1rem' }}
+              >
+                Sign Out
+              </button>
+            </>
+          )}
+          {!loading && !user && (
+            <Link href="/signin" className={`${shared.topNavLink} ${shared.topNavSignIn}`}>
+              Sign In
+            </Link>
+          )}
+        </nav>
       </header>
 
       <section className={styles.hero}>

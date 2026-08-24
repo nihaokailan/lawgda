@@ -122,7 +122,7 @@ export default function UploadDocument() {
             className={shared.input}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Deed of Sale - Santos Property"
+            placeholder="for ex. Deed of Sale - Santos Property"
             required
           />
         </label>

@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
 import { requireAuthProfile } from '../../../../lib/authGuard';
-import { ROLE_LABELS } from '../../../../lib/roles';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import DocumentEditClient from './DocumentEditClient';
 
@@ -90,7 +89,7 @@ export default async function DocumentEditPage({ params }: { params: { documentI
     <WorkspaceShell
       profile={profile}
       title="Document Edit Workspace"
-      subtitle={`Role: ${ROLE_LABELS[profile.role] ?? profile.role}. Configure signer flow and evidence outputs.`}
+      subtitle="Configure signer flow and evidence outputs."
     >
       <DocumentEditClient
         document={{

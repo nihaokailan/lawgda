@@ -1,6 +1,5 @@
 import WorkspaceShell from '../components/WorkspaceShell';
 import { requireAuthProfile } from '../../lib/authGuard';
-import { ROLE_LABELS } from '../../lib/roles';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import DashboardClient from './DashboardClient';
 
@@ -70,13 +69,12 @@ async function loadDashboardData() {
 export default async function DashboardPage() {
   const { user, profile } = await requireAuthProfile();
   const { metrics, recentDocuments } = await loadDashboardData();
-  const roleLabel = ROLE_LABELS[profile.role] ?? profile.role;
 
   return (
     <WorkspaceShell
       profile={profile}
       title="LAWDGA Dashboard"
-      subtitle={`Welcome back, ${getFirstName(profile.full_name, user.email)}. Role: ${roleLabel}.`}
+      subtitle={`Welcome back, ${getFirstName(profile.full_name, user.email)}.`}
     >
       <DashboardClient initialDocuments={recentDocuments} initialMetrics={metrics} />
     </WorkspaceShell>

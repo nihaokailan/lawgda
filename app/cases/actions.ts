@@ -50,7 +50,7 @@ async function resolveTargetUserId(_supabase: ReturnType<typeof createSupabaseSe
   const normalizedEmail = value.toLowerCase();
   const supabaseAdmin = getSupabaseAdmin();
   const { data: profile, error } = await supabaseAdmin
-    .from('user_profiles')
+    .from('profiles')
     .select('user_id,email')
     .ilike('email', normalizedEmail)
     .limit(1)

@@ -154,7 +154,7 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
               className={styles.modalInput}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Affidavit of Loss"
+              placeholder="for ex. Affidavit of Loss"
               required
             />
           </label>
