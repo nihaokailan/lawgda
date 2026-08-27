@@ -129,7 +129,7 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
     setFile(null);
 
     if (uploadedId && redirectOnUpload) {
-      router.push(`/documents/${uploadedId}/edit`);
+      router.push(`/documents/${uploadedId}/prepare`);
       router.refresh();
     }
   }

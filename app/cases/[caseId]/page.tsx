@@ -9,6 +9,7 @@ type RawDocument = {
   case_id: string;
   owner_id: string | null;
   user_id: string | null;
+  uploaded_by: string | null;
   title: string | null;
   name: string | null;
   filename: string | null;
@@ -59,7 +60,7 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
     supabase.from('cases').select('id,title,owner_id,user_id,created_at').eq('id', caseId).maybeSingle(),
     supabase
       .from('documents')
-      .select('id,case_id,owner_id,user_id,title,name,filename,file_path,path,sha256_hash,status,created_at')
+      .select('*')
       .eq('case_id', caseId)
       .order('created_at', { ascending: false }),
   ]);
@@ -85,7 +86,11 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
   const visibleDocuments = documents
     .filter((document) => {
       const documentOwner = document.owner_id ?? document.user_id;
+      const uploaderId = document.uploaded_by ?? null;
       if (documentOwner === user.id) {
+        return true;
+      }
+      if (uploaderId === user.id) {
         return true;
       }
       if (isOwner) {

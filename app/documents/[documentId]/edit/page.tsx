@@ -40,7 +40,8 @@ export default async function DocumentEditPage({ params }: { params: { documentI
   }
 
   const ownerId = document.owner_id ?? document.user_id;
-  let hasPermission = ownerId === user.id;
+  const uploaderId = document.uploaded_by ?? null;
+  let hasPermission = ownerId === user.id || uploaderId === user.id;
 
   if (!hasPermission) {
     const { data: permission } = await supabase

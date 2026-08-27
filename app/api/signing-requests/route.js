@@ -34,7 +34,7 @@ export async function GET(request) {
 
   const { data: document, error: docError } = await supabase
     .from('documents')
-    .select('id,user_id')
+    .select('*')
     .eq('id', documentId)
     .single();
 
@@ -43,7 +43,23 @@ export async function GET(request) {
   }
 
   const isPrivileged = profile && [ROLES.ADMINISTRATOR, ROLES.LAWYER].includes(profile.role);
-  if (!isPrivileged && document.user_id !== user.id) {
+  const ownerId = document.owner_id ?? document.user_id;
+  const uploaderId = document.uploaded_by ?? null;
+
+  let hasPermission = Boolean(isPrivileged) || ownerId === user.id || uploaderId === user.id;
+
+  if (!hasPermission) {
+    const { data: permission } = await supabase
+      .from('document_permissions')
+      .select('id')
+      .eq('document_id', documentId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    hasPermission = Boolean(permission);
+  }
+
+  if (!hasPermission) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
@@ -122,7 +138,7 @@ export async function POST(request) {
 
   const { data: document, error: documentError } = await supabase
     .from('documents')
-    .select('id,user_id,filename,sha256_hash,path,bucket')
+    .select('*')
     .eq('id', documentId)
     .single();
 
@@ -130,7 +146,23 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
   }
 
-  if (profile.role !== ROLES.ADMINISTRATOR && document.user_id !== user.id) {
+  const ownerId = document.owner_id ?? document.user_id;
+  const uploaderId = document.uploaded_by ?? null;
+
+  let hasPermission = profile.role === ROLES.ADMINISTRATOR || ownerId === user.id || uploaderId === user.id;
+
+  if (!hasPermission) {
+    const { data: permission } = await supabase
+      .from('document_permissions')
+      .select('id')
+      .eq('document_id', documentId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    hasPermission = Boolean(permission);
+  }
+
+  if (!hasPermission) {
     return NextResponse.json({ error: 'You are not allowed to create signing requests for this document.' }, { status: 403 });
   }
 

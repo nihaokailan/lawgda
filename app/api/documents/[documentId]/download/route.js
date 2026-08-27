@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
   // Fetch document
   const { data: document, error: docError } = await supabase
     .from('documents')
-    .select('id,title,file_path,storage_path,path,bucket,sha256_hash,user_id,owner_id')
+    .select('*')
     .eq('id', documentId)
     .single();
 
@@ -30,7 +30,8 @@ export async function GET(request, { params }) {
 
   // Check permissions
   const ownerId = document.owner_id ?? document.user_id;
-  let hasPermission = ownerId === session.user.id;
+  const uploaderId = document.uploaded_by ?? null;
+  let hasPermission = ownerId === session.user.id || uploaderId === session.user.id;
 
   if (!hasPermission) {
     const { data: permission } = await supabase

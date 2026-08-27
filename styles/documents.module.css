@@ -1,10 +1,10 @@
 .docsShell {
-  background: #fff;
-  border: 1px solid #e7eaf3;
-  border-radius: 16px;
-  padding: 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   display: grid;
-  gap: 0.85rem;
+  gap: 0.7rem;
 }
 
 .sectionHeader {
@@ -12,80 +12,97 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e8edf5;
 }
 
 .sectionTitle {
   margin: 0;
-  color: #273246;
-  font-size: 1.6rem;
+  color: #1e2639;
+  font-size: clamp(1.2rem, 1.08rem + 0.6vw, 1.55rem);
+  font-weight: 700;
 }
 
 .topActions {
   display: flex;
-  gap: 0.8rem;
+  gap: 0.55rem;
 }
 
 .verifyButton,
 .prepareButton {
-  padding: 0.7rem 1rem;
+  padding: 0.58rem 0.95rem;
   border-radius: 8px;
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 0.88rem;
   text-decoration: none;
   font: inherit;
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .verifyButton {
-  color: #8a1020;
-  border: 1px solid #8a1020;
+  color: #4a1323;
+  border: 1px solid #d5dce9;
   background: #fff;
 }
 
 .prepareButton {
   color: #fff;
-  border: 1px solid #8a1020;
+  border: 1px solid #690f1a;
   background: #8a1020;
+}
+
+.verifyButton:hover,
+.prepareButton:hover {
+  transform: translateY(-1px);
+}
+
+.prepareButton:hover {
+  background: #6d0c17;
 }
 
 .summaryRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 0.48rem;
 }
 
 .summaryCard {
-  border: 1px solid #e4e8f4;
-  border-radius: 10px;
-  background: #fafbff;
-  padding: 0.6rem 0.7rem;
+  border: none;
+  border-left: 2px solid #d9e1f0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0.58rem;
 }
 
 .summaryLabel {
   margin: 0;
-  color: #6a738a;
-  font-size: 0.85rem;
+  color: #667189;
+  font-size: 0.74rem;
+  line-height: 1.25;
 }
 
 .summaryValue {
-  margin: 0.3rem 0 0;
-  color: #2f3748;
-  font-size: 1.15rem;
+  margin: 0.22rem 0 0;
+  color: #1f2a3f;
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .filterRow {
   display: flex;
-  gap: 0.55rem;
+  gap: 0.42rem;
   flex-wrap: wrap;
 }
 
 .filterButton {
   border: 1px solid #d7dceb;
-  background: #fff;
-  color: #55647f;
+  background: transparent;
+  color: #4f5f7b;
   border-radius: 999px;
-  font-weight: 700;
-  padding: 0.45rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 0.36rem 0.74rem;
 }
 
 .filterButtonActive {
@@ -100,23 +117,24 @@
 
 .searchInput {
   width: 100%;
-  border: 1px solid #cfd5e3;
-  border-radius: 8px;
-  background: #fff;
-  padding: 0.7rem 0.8rem;
+  border: 1px solid #d4dbea;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.62rem 0.75rem;
 }
 
 .resultsWrap {
   display: grid;
-  gap: 0.85rem;
+  gap: 0.72rem;
 }
 
 .emptyState {
   margin: 0;
-  padding: 1rem;
+  padding: 0.85rem;
   border: 1px dashed #d2d7e7;
-  border-radius: 10px;
+  border-radius: 0;
   color: #657089;
+  font-size: 0.9rem;
 }
 
 .table {
@@ -128,35 +146,58 @@
 .table td {
   text-align: left;
   border-bottom: 1px solid #e7eaf3;
-  padding: 0.7rem 0.55rem;
+  padding: 0.56rem 0.5rem;
 }
 
 .table th {
-  color: #6c7389;
-  font-size: 0.8rem;
+  color: #626d84;
+  font-size: 0.73rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.table td {
+  font-size: 0.88rem;
+  color: #1f2739;
 }
 
 .statusPill {
   display: inline-flex;
   border-radius: 999px;
-  background: #eff4ff;
-  color: #3b4b6d;
-  padding: 0.25rem 0.65rem;
-  font-weight: 700;
-  font-size: 0.82rem;
+  background: #f0f4fb;
+  color: #324766;
+  padding: 0.22rem 0.52rem;
+  font-weight: 600;
+  font-size: 0.75rem;
 }
 
 .openLink {
-  color: #8a1020;
+  color: #7a0f1d;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 600;
+}
+
+.openLink:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 1200px) {
   .sectionHeader {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 780px) {
+  .docsShell {
+    padding: 0.8rem;
+  }
+
+  .summaryRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .table {
+    min-width: 620px;
   }
 }

@@ -1,0 +1,188 @@
+.prepareLayout {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 320px;
+  gap: 1rem;
+  align-items: start;
+}
+
+.previewPane {
+  min-width: 0;
+}
+
+.previewLabel {
+  margin: 0 0 0.45rem;
+  text-align: center;
+  color: #2f3648;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.previewFrame {
+  width: 100%;
+  min-height: 72vh;
+  border: 1px solid #dce2ee;
+  background: #fff;
+}
+
+.previewFallback {
+  min-height: 72vh;
+  border: 1px dashed #dce2ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5f6677;
+  background: #fbfcff;
+}
+
+.sidebarPane {
+  width: 320px;
+  max-width: 320px;
+  border-left: 1px solid #dde3ef;
+  padding-left: 0.8rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.sidebarTitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #1b2235;
+}
+
+.sidebarSubtitle {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #5f6677;
+}
+
+.participantList {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 52vh;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.participantRow {
+  border: 1px solid #dfe5ef;
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+  background: #fff;
+}
+
+.participantRowDragging {
+  opacity: 0.82;
+  box-shadow: 0 12px 22px rgba(20, 27, 43, 0.14);
+}
+
+.rowHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #49526a;
+  font-size: 0.8rem;
+}
+
+.rowLeftCluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dragHandle {
+  width: 26px;
+  height: 22px;
+  border: 1px solid #d8deea;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  padding: 0;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dotGrid {
+  width: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, 4px);
+  grid-template-rows: repeat(3, 4px);
+  gap: 1px;
+}
+
+.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #6b7488;
+}
+
+.removeButton {
+  border: 1px solid #d8deea;
+  background: #fff;
+  color: #4c556f;
+  font-size: 0.76rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.fieldLabel {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: #42506b;
+}
+
+.fieldInput {
+  border: 1px solid #d8deea;
+  background: #fff;
+  padding: 0.45rem 0.55rem;
+  font-size: 0.84rem;
+  width: 100%;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.errorText,
+.successText {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.errorText {
+  color: #991b1b;
+}
+
+.successText {
+  color: #047857;
+}
+
+@media (max-width: 1200px) {
+  .prepareLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .previewFrame,
+  .previewFallback {
+    min-height: 50vh;
+  }
+
+  .sidebarPane {
+    width: 100%;
+    max-width: none;
+    border-left: none;
+    border-top: 1px solid #dde3ef;
+    padding-left: 0;
+    padding-top: 0.8rem;
+  }
+}

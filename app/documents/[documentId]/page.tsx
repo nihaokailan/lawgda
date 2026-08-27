@@ -23,7 +23,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
   // Fetch document
   const { data: document, error: docError } = await supabase
     .from('documents')
-    .select('id,title,status,sha256_hash,created_at,user_id,owner_id')
+    .select('*')
     .eq('id', documentId)
     .single();
 
@@ -33,7 +33,8 @@ export default async function DocumentViewPage({ params }: { params: { documentI
 
   // Check permissions
   const ownerId = document.owner_id ?? document.user_id;
-  let hasPermission = ownerId === user.id;
+  const uploaderId = document.uploaded_by ?? null;
+  let hasPermission = ownerId === user.id || uploaderId === user.id;
 
   if (!hasPermission) {
     const { data: permission } = await supabase
@@ -60,11 +61,11 @@ export default async function DocumentViewPage({ params }: { params: { documentI
           ← Back to Dashboard
         </Link>
         <Link 
-          href={`/documents/${documentId}/edit`} 
+          href={`/documents/${documentId}/prepare`} 
           className={shared.linkButton}
           style={{ marginLeft: '0.5rem', background: 'var(--crimson)', color: '#fff' }}
         >
-          Edit Document →
+          Prepare Document →
         </Link>
       </div>
       

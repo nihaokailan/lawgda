@@ -11,7 +11,7 @@ function getTitle(record) {
 function normalizeStatus(value) {
   const status = String(value || '').toLowerCase();
   if (status.includes('draft')) return 'Drafts';
-  if (status.includes('pending')) return 'Out for signature';
+  if (status.includes('pending')) return 'Pending';
   if (status.includes('signed') || status.includes('file')) return 'Completed';
   if (status.includes('cancel')) return 'Cancelled';
   if (status.includes('deny')) return 'Denied';
@@ -21,7 +21,36 @@ function normalizeStatus(value) {
 
 function buildOwnerLabel(record, meUserId) {
   const ownerId = record.owner_id || record.user_id || null;
-  return ownerId === meUserId ? 'You' : 'Shared';
+  const uploaderId = record.uploaded_by || null;
+  return ownerId === meUserId || uploaderId === meUserId ? 'You' : 'Shared';
+}
+
+async function loadDocumentsForCasesPage(supabase) {
+  const selectVariants = [
+    'id,title,name,filename,status,created_at,owner_id,user_id,uploaded_by,org_id,sha256_hash',
+    'id,title,name,status,created_at,owner_id,user_id,uploaded_by,org_id,sha256_hash',
+    'id,title,name,status,created_at,org_id,uploaded_by,sha256_hash',
+    'id,title,name,mime_type,size_bytes,bucket,storage_path,created_at,org_id,uploaded_by',
+    'id,title,name,filename,status,created_at,user_id,sha256_hash',
+  ];
+
+  for (const fields of selectVariants) {
+    const result = await supabase
+      .from('documents')
+      .select(fields)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (!result.error) {
+      return result.data || [];
+    }
+
+    if (!/Could not find the '([^']+)' column/i.test(result.error.message || '')) {
+      return [];
+    }
+  }
+
+  return [];
 }
 
 function getInitials(label) {
@@ -35,13 +64,7 @@ export default async function CasesPage() {
   const { user, profile } = await requireAuthProfile('/signin');
   const supabase = createSupabaseServerClient();
 
-  const docsResult = await supabase
-    .from('documents')
-    .select('id,title,name,filename,status,created_at,owner_id,user_id,sha256_hash')
-    .order('created_at', { ascending: false })
-    .limit(200);
-
-  const rawDocs = docsResult.data || [];
+  const rawDocs = await loadDocumentsForCasesPage(supabase);
 
   let permissionDocIds = new Set();
   const docIds = rawDocs.map((doc) => doc.id).filter(Boolean);
@@ -60,7 +83,9 @@ export default async function CasesPage() {
   const documents = rawDocs
     .filter((record) => {
       const ownerId = record.owner_id || record.user_id || null;
-      return ownerId === user.id || permissionDocIds.has(record.id);
+      const uploaderId = record.uploaded_by || null;
+      const isSameOrg = Boolean(profile.org_id) && Boolean(record.org_id) && profile.org_id === record.org_id;
+      return ownerId === user.id || uploaderId === user.id || isSameOrg || permissionDocIds.has(record.id);
     })
     .map((record) => {
       const ownerLabel = buildOwnerLabel(record, user.id);

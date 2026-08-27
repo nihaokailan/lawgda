@@ -58,6 +58,8 @@ export default function TopNav() {
     window.location.replace('/landing');
   };
 
+  const userInitial = String(user?.email || 'U').trim().charAt(0).toUpperCase() || 'U';
+
   return (
     <header className={shared.topNav}>
       <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
@@ -68,17 +70,18 @@ export default function TopNav() {
         {user && (
           <>
             <Link href="/cases" className={shared.topNavLink}>Documents</Link>
-            <Link href="/dashboard" className={shared.topNavLink}>Workspace</Link>
+            <Link href="/verify" className={shared.topNavLink}>Verify</Link>
+            <Link href="/profile" className={shared.topNavLink}>Profile</Link>
             {userRole === 'administrator' && (
-              <Link href="/admin" className={shared.topNavLink} style={{ background: 'rgba(106, 15, 26, 0.15)', fontWeight: 600 }}>
-                Admin Panel
+              <Link href="/admin" className={shared.topNavLink}>
+                Admin
               </Link>
             )}
-            <span className={shared.topNavUserEmail}>{user.email}</span>
+            <span className={shared.topNavAvatar} aria-hidden="true">{userInitial}</span>
             <button 
               onClick={handleSignOut} 
               className={`${shared.topNavLink} ${shared.topNavSignOut}`}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.75rem 1rem' }}
+              style={{ border: 'none', cursor: 'pointer' }}
             >
               Sign Out
             </button>

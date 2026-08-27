@@ -134,7 +134,7 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
     setMessage('Document uploaded with verified SHA-256 hash.');
 
     if (documentId) {
-      router.push(`/documents/${documentId}/edit`);
+      router.push(`/documents/${documentId}/prepare`);
       router.refresh();
     }
   }

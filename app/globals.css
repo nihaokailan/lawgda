@@ -5,23 +5,23 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Avenir Next', 'IBM Plex Sans', 'Segoe UI', sans-serif;
 }
 
 :root {
-  --bg: #ffffff;
+  --bg: #f5f6f9;
   --surface: #ffffff;
-  --surface-alt: #faf5f5;
-  --text: #1f1b1c;
-  --muted: #6b4f52;
-  --border: rgba(106, 15, 26, 0.14);
+  --surface-alt: #f8f8fc;
+  --text: #171920;
+  --muted: #5f6677;
+  --border: #dfe4ef;
 
   --crimson: #6a0f1a;
   --crimson-dark: #4f0b13;
-  --crimson-light: #a22f42;
+  --crimson-light: #8f2435;
   --accent: #ffffff;
-  --hero-bg: #6a0f1a;
-  --hero-grid: rgba(255, 255, 255, 0.08);
+  --hero-bg: #1f2230;
+  --hero-grid: rgba(255, 255, 255, 0.06);
 }
 
 * {

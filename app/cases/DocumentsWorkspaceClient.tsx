@@ -164,7 +164,7 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
                   <td>{row.ownerLabel}</td>
                   <td>{formatDate(row.createdAt)}</td>
                   <td>
-                    <Link href={`/documents/${row.id}/edit`} className={styles.openLink}>Open</Link>
+                    <Link href={`/documents/${row.id}/prepare`} className={styles.openLink}>Open</Link>
                   </td>
                 </tr>
               ))}
@@ -177,7 +177,7 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
         open={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         onUploaded={handleUploaded}
-        redirectOnUpload={false}
+        redirectOnUpload
       />
     </section>
   );

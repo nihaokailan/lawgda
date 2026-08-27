@@ -19,7 +19,7 @@ export async function GET(_request, { params }) {
 
   const { data: document, error: docError } = await supabase
     .from('documents')
-    .select('id,user_id,owner_id')
+    .select('*')
     .eq('id', documentId)
     .single();
 
@@ -28,7 +28,8 @@ export async function GET(_request, { params }) {
   }
 
   const ownerId = document.owner_id ?? document.user_id;
-  let allowed = ownerId === user.id;
+  const uploaderId = document.uploaded_by ?? null;
+  let allowed = ownerId === user.id || uploaderId === user.id;
 
   if (!allowed) {
     const { data: permission } = await supabase
