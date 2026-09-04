@@ -4,6 +4,8 @@ import { requireAuthProfile } from '../../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import PrepareDocumentClient from './PrepareDocumentClient';
+import Link from 'next/link';
+import shared from '../../../../styles/shared.module.css';
 
 type SigningRequest = {
   id: string;
@@ -74,6 +76,10 @@ export default async function DocumentPreparePage({ params }: { params: { docume
     redirect('/dashboard');
   }
 
+  if (['signed', 'filed'].includes(String(document.status || '').toLowerCase())) {
+    redirect(`/documents/${documentId}`);
+  }
+
   const signingRequestsResult = await supabase
     .from('signing_requests')
     .select('id,signer_name,signer_email,signing_order,status,created_at,signed_at,viewed_at')
@@ -86,8 +92,8 @@ export default async function DocumentPreparePage({ params }: { params: { docume
   return (
     <WorkspaceShell
       profile={profile}
-      title="Document Preparation"
-      subtitle="Set participants and prepare this document for signing workflow."
+      title="Sign Document"
+      subtitle="Compare the original and signed document while setting the signing workflow."
     >
       <PrepareDocumentClient
         document={{
@@ -105,6 +111,11 @@ export default async function DocumentPreparePage({ params }: { params: { docume
         }}
         initialSigningRequests={signingRequestsResult.data as SigningRequest[] || []}
       />
+      <div style={{ marginTop: '1rem' }}>
+        <Link href={`/documents/${documentId}/signed`} className={shared.linkButton}>
+          Open Signed Document Page
+        </Link>
+      </div>
     </WorkspaceShell>
   );
 }

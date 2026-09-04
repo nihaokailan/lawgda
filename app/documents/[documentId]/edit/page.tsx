@@ -57,6 +57,10 @@ export default async function DocumentEditPage({ params }: { params: { documentI
     redirect('/dashboard');
   }
 
+  if (['signed', 'filed'].includes(String(document.status || '').toLowerCase())) {
+    redirect(`/documents/${documentId}`);
+  }
+
   const [signingRequestsResult, signingAuditResult, auditResult] = await Promise.all([
     supabase
       .from('signing_requests')

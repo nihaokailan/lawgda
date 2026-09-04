@@ -182,6 +182,7 @@ export default function PrepareDocumentClient({
 
     async function loadPreviewUrls() {
       let hasAuthorizedPreview = false;
+      let hasAuthorizedSignedPreview = false;
       try {
         const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download`);
         const payload = await response.json();
@@ -197,6 +198,7 @@ export default function PrepareDocumentClient({
         const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download?version=signed`);
         const payload = await response.json();
         if (response.ok && payload.downloadUrl && mounted) {
+          hasAuthorizedSignedPreview = true;
           setSignedUrl(payload.downloadUrl);
         }
       } catch {
@@ -249,15 +251,17 @@ export default function PrepareDocumentClient({
         }
       }
 
-      if (mounted) {
+      if (mounted && !hasAuthorizedSignedPreview) {
         setSignedUrl(resolvedSigned);
       }
     }
 
     loadPreviewUrls();
+    const refreshTimer = window.setInterval(loadPreviewUrls, 10000);
 
     return () => {
       mounted = false;
+      window.clearInterval(refreshTimer);
     };
   }, [document.id, document.bucket, document.filePath, document.signedBucket, document.signedPath, supabase]);
 

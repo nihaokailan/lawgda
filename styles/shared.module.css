@@ -90,6 +90,16 @@
   resize: vertical;
 }
 
+.signaturePad {
+  width: 100%;
+  height: 160px;
+  border: 1px solid #dfe4ef;
+  border-radius: 12px;
+  background: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+
 .buttonGroup {
   display: flex;
   flex-wrap: wrap;

@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
 
@@ -16,18 +15,70 @@ export default function ExternalSignerPage({ params }) {
   const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState('');
   const [signedUrl, setSignedUrl] = useState('');
+  const [signatureDataUrl, setSignatureDataUrl] = useState('');
+  const signatureCanvasRef = useRef(null);
+  const drawingRef = useRef(false);
+
+  function getCanvasPoint(event) {
+    const canvas = signatureCanvasRef.current;
+    const bounds = canvas.getBoundingClientRect();
+    return {
+      x: (event.clientX - bounds.left) * (canvas.width / bounds.width),
+      y: (event.clientY - bounds.top) * (canvas.height / bounds.height),
+    };
+  }
+
+  function startSignature(event) {
+    const canvas = signatureCanvasRef.current;
+    const context = canvas.getContext('2d');
+    const point = getCanvasPoint(event);
+    drawingRef.current = true;
+    context.beginPath();
+    context.moveTo(point.x, point.y);
+    canvas.setPointerCapture(event.pointerId);
+  }
+
+  function drawSignature(event) {
+    if (!drawingRef.current) return;
+    const canvas = signatureCanvasRef.current;
+    const context = canvas.getContext('2d');
+    const point = getCanvasPoint(event);
+    context.lineTo(point.x, point.y);
+    context.stroke();
+    setSignatureDataUrl(canvas.toDataURL('image/png'));
+  }
+
+  function finishSignature(event) {
+    drawingRef.current = false;
+    const canvas = signatureCanvasRef.current;
+    if (canvas?.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function clearSignature() {
+    const canvas = signatureCanvasRef.current;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    setSignatureDataUrl('');
+  }
 
   const loadRequest = useCallback(async (emailForVerification = '') => {
     const query = emailForVerification ? `?email=${encodeURIComponent(emailForVerification)}` : '';
-    const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}${query}`);
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error || 'Unable to load signing request.');
+    try {
+      const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}${query}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Unable to load signing request.');
+      }
+      setPayload(data);
+      setError('');
       setLoading(false);
-      return;
+      return data;
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load signing request.');
+      setLoading(false);
     }
-    setPayload(data);
-    setLoading(false);
   }, [token]);
 
   useEffect(() => {
@@ -35,9 +86,15 @@ export default function ExternalSignerPage({ params }) {
   }, [loadRequest]);
 
   async function handleVerifySigner() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setError('Enter the signer email address to continue.');
+      return;
+    }
+
     setVerifying(true);
     setError('');
-    await loadRequest(email);
+    await loadRequest(normalizedEmail);
     setVerifying(false);
   }
 
@@ -52,15 +109,35 @@ export default function ExternalSignerPage({ params }) {
       return;
     }
 
-    const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, signatureName }),
-    });
+    if (!signatureName.trim()) {
+      setSigning(false);
+      setError('Type your full legal name before signing the document.');
+      return;
+    }
 
-    const data = await response.json();
+    if (!signatureDataUrl) {
+      setSigning(false);
+      setError('Draw your signature before signing the document.');
+      return;
+    }
+
+    let response;
+    let data;
+    try {
+      response = await fetch(`/api/external-sign/${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), signatureName: signatureName.trim(), signatureDataUrl }),
+      });
+      data = await response.json();
+    } catch {
+      setSigning(false);
+      setError('The signing service is unavailable. Please try again.');
+      return;
+    }
+
     setSigning(false);
 
     if (!response.ok) {
@@ -149,6 +226,23 @@ export default function ExternalSignerPage({ params }) {
                         placeholder={payload.signingRequest.signerName}
                       />
                     </label>
+                    <div className={shared.fieldLabel}>
+                      Draw your signature
+                      <canvas
+                        ref={signatureCanvasRef}
+                        width="900"
+                        height="240"
+                        className={shared.signaturePad}
+                        onPointerDown={startSignature}
+                        onPointerMove={drawSignature}
+                        onPointerUp={finishSignature}
+                        onPointerCancel={finishSignature}
+                        aria-label="Draw your signature"
+                      />
+                      <button type="button" className={shared.textButton} onClick={clearSignature}>
+                        Clear signature
+                      </button>
+                    </div>
                     <button type="button" className={shared.button} onClick={handleSign} disabled={signing}>
                       {signing ? 'Signing...' : 'Sign Document'}
                     </button>

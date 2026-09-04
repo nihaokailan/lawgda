@@ -68,12 +68,12 @@ export default async function DocumentViewPage({ params }: { params: { documentI
         <Link href="/dashboard" className={shared.linkButton}>
           ← Back to Dashboard
         </Link>
-        <Link 
-          href={`/documents/${documentId}/prepare`} 
+        <Link
+          href={`/documents/${documentId}/${String(document.status || '').toLowerCase() === 'signed' ? 'signed' : 'prepare'}`}
           className={shared.linkButton}
           style={{ marginLeft: '0.5rem', background: 'var(--crimson)', color: '#fff' }}
         >
-          Prepare Document →
+          {String(document.status || '').toLowerCase() === 'signed' ? 'Signed Document →' : 'Sign Document →'}
         </Link>
       </div>
       

@@ -120,6 +120,7 @@ export async function POST(request, { params }) {
   const body = await request.json();
   const providedEmail = String(body?.email ?? '').trim().toLowerCase();
   const signatureName = String(body?.signatureName ?? '').trim();
+  const signatureDataUrl = String(body?.signatureDataUrl ?? '').trim();
 
   const { request: signingRequest, reason } = await resolveSigningRequestByToken(token);
 
@@ -141,6 +142,10 @@ export async function POST(request, { params }) {
 
   if (!signatureName) {
     return NextResponse.json({ error: 'Type your full name to sign the document.' }, { status: 400 });
+  }
+
+  if (!/^data:image\/png;base64,/.test(signatureDataUrl)) {
+    return NextResponse.json({ error: 'Draw your signature before signing the document.' }, { status: 400 });
   }
 
   await logSigningAuditEvent({
@@ -185,6 +190,7 @@ export async function POST(request, { params }) {
       signerEmail: providedEmail,
       signedAt: now,
       requestId: signingRequest.id,
+      signatureDataUrl,
     });
   } catch (error) {
     return NextResponse.json({ error: `Unable to apply the signature to this PDF: ${error instanceof Error ? error.message : 'invalid PDF'}` }, { status: 400 });
@@ -210,6 +216,13 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: signError.message }, { status: 400 });
   }
 
+  const { data: remainingRequests } = await supabaseAdmin
+    .from('signing_requests')
+    .select('status')
+    .eq('document_id', signingRequest.document_id);
+  const allSignersCompleted = (remainingRequests ?? []).length > 0
+    && (remainingRequests ?? []).every((request) => request.status === 'signed');
+
   const { data: doc } = await supabaseAdmin.from('documents').select('document_history,metadata').eq('id', signingRequest.document_id).single();
   const history = Array.isArray(doc?.document_history) ? doc.document_history : [];
   history.push({
@@ -225,12 +238,15 @@ export async function POST(request, { params }) {
   const { error: documentUpdateError } = await supabaseAdmin
     .from('documents')
     .update({
+      ...(allSignersCompleted ? { status: 'Signed' } : {}),
       document_history: history,
       metadata: {
         ...currentMetadata,
         signed_bucket: bucket,
         signed_file_path: signedPath,
         signed_at: now,
+        signature_name: signatureName,
+        signature_email: providedEmail,
       },
     })
     .eq('id', signingRequest.document_id);
