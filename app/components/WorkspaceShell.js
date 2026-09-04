@@ -4,16 +4,16 @@ import TopNav from './TopNav';
 
 export default function WorkspaceShell({ profile, title, subtitle, children }) {
   return (
-    <main className={styles.shell}>
+    <main className={`workspace-shell ${styles.shell}`}>
       <TopNav />
-      <div className={styles.container}>
+      <div className={`workspace-container ${styles.container}`}>
         <WorkspaceSidebar role={profile.role} />
-        <section className={styles.mainPanel}>
-          <header className={styles.header}>
-            <h1 className={styles.title}>{title}</h1>
-            <p className={styles.subtitle}>{subtitle}</p>
+        <section className={`workspace-main-panel ${styles.mainPanel}`}>
+          <header className={`workspace-header ${styles.header}`}>
+            <h1 className={`workspace-title ${styles.title}`}>{title}</h1>
+            <p className={`workspace-subtitle ${styles.subtitle}`}>{subtitle}</p>
           </header>
-          <div className={styles.content}>{children}</div>
+          <div className={`workspace-content ${styles.content}`}>{children}</div>
         </section>
       </div>
     </main>

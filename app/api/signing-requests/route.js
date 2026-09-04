@@ -4,6 +4,40 @@ import { generateSigningToken, hashSigningToken } from '../../../lib/signingToke
 import { logSigningAuditEvent } from '../../../lib/signingAudit';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
+import { sendSigningInvitationEmail } from '../../../lib/email';
+
+async function ensureProfileExists(supabase, user) {
+  const { data: existingProfile, error: existingError } = await supabase
+    .from('profiles')
+    .select('user_id,role,full_name,email')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!existingError && existingProfile) {
+    return existingProfile;
+  }
+
+  const fallbackProfile = {
+    user_id: user.id,
+    email: user.email ?? null,
+    full_name: user.user_metadata?.full_name ?? null,
+    role: ROLES.STAFF,
+    admin_request_status: 'none',
+    is_active: true,
+  };
+
+  const { data: insertedProfile, error: insertError } = await supabase
+    .from('profiles')
+    .upsert(fallbackProfile, { onConflict: 'user_id' })
+    .select('user_id,role,full_name,email')
+    .single();
+
+  if (insertError) {
+    return fallbackProfile;
+  }
+
+  return insertedProfile || fallbackProfile;
+}
 
 function addDays(days) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -89,13 +123,8 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role,full_name')
-    .eq('user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
+  const profile = await ensureProfileExists(supabase, user);
+  if (!profile || !profile.role) {
     return NextResponse.json({ error: 'Missing user profile.' }, { status: 403 });
   }
 
@@ -117,6 +146,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid signing request payload.' }, { status: 400 });
   }
 
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signerEmail)) {
+    return NextResponse.json({ error: 'Enter a valid signer email address.' }, { status: 400 });
+  }
+
   if (signerType === 'internal' && !internalSignerId) {
     return NextResponse.json({ error: 'Internal signer ID is required for internal signers.' }, { status: 400 });
   }
@@ -136,11 +169,11 @@ export async function POST(request) {
     signerEmail = String(internalProfile.email).toLowerCase();
   }
 
-  const { data: document, error: documentError } = await supabase
+  const { data: document, error: documentError } = await supabaseAdmin
     .from('documents')
     .select('*')
     .eq('id', documentId)
-    .single();
+    .maybeSingle();
 
   if (documentError || !document) {
     return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
@@ -182,7 +215,7 @@ export async function POST(request) {
     status: 'pending',
   };
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: inserted, error: insertError } = await supabaseAdmin
     .from('signing_requests')
     .insert([payload])
     .select('id,token_reference,expires_at')
@@ -192,7 +225,7 @@ export async function POST(request) {
     return NextResponse.json({ error: insertError?.message ?? 'Unable to create signing request.' }, { status: 400 });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'http://localhost:3000';
   const signingLink = `${baseUrl}/sign/${encodeURIComponent(token)}`;
 
   await logSigningAuditEvent({
@@ -213,6 +246,13 @@ export async function POST(request) {
     },
   });
 
+  const emailResult = await sendSigningInvitationEmail({
+    to: signerEmail,
+    signerName,
+    documentName: document.filename || document.title || 'Document',
+    signingLink,
+  });
+
   await logSigningAuditEvent({
     signingRequestId: inserted.id,
     documentId,
@@ -223,6 +263,8 @@ export async function POST(request) {
     details: {
       signer_email: signerEmail,
       signing_link: signingLink,
+      email_status: emailResult.ok ? 'sent' : 'fallback_logged',
+      email_message: emailResult.reason ?? 'sent',
     },
   });
 
@@ -248,6 +290,8 @@ export async function POST(request) {
 
   return NextResponse.json({
     success: true,
+    emailSent: emailResult.ok,
+    emailError: emailResult.ok ? null : emailResult.reason,
     signingRequest: inserted,
     signingLink,
   });

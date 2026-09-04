@@ -77,7 +77,7 @@ export default function TopNav() {
                 Admin
               </Link>
             )}
-            <span className={shared.topNavAvatar} aria-hidden="true">{userInitial}</span>
+            <span className={shared.topNavUserEmail}>{user.email}</span>
             <button 
               onClick={handleSignOut} 
               className={`${shared.topNavLink} ${shared.topNavSignOut}`}

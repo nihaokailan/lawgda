@@ -1,9 +1,5 @@
 alter type app_role add value if not exists 'staff';
 
-update user_profiles
-set role = 'staff'::app_role
-where role::text in ('paralegal', 'signer');
-
 alter table user_profiles
   alter column role set default 'staff'::app_role;
 

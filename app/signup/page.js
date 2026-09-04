@@ -13,6 +13,8 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   const router = useRouter();
@@ -91,16 +93,50 @@ export default function SignupPage() {
               </label>
               <label className={shared.fieldLabel}>
                 Password
-                <input className={shared.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+                <div className={shared.passwordInputWrap}>
+                  <input
+                    className={`${shared.input} ${shared.passwordInput}`}
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    className={shared.passwordToggle}
+                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </label>
               <label className={shared.fieldLabel}>
                 Confirm Password
-                <input className={shared.input} type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} />
+                <div className={shared.passwordInputWrap}>
+                  <input
+                    className={`${shared.input} ${shared.passwordInput}`}
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    className={shared.passwordToggle}
+                    onClick={() => setShowConfirmPassword((current) => !current)}
+                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                  >
+                    {showConfirmPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
               </label>
               <button type="submit" className={shared.button}>Create account</button>
             </form>
             <p className={shared.helpText} style={{ marginTop: '1rem' }}>
-              Admin privileges cannot be selected during registration.
+              Anyone can register. New accounts are created as standard users and can be upgraded later by an admin.
             </p>
             {message && (
               <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>

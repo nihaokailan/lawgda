@@ -20,6 +20,34 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState('');
   const [downloadedAt, setDownloadedAt] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewError, setPreviewError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPreview() {
+      try {
+        const response = await fetch(`/api/documents/${document.id}/download`);
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Unable to load PDF preview.');
+        }
+        if (mounted) {
+          setPreviewUrl(payload.downloadUrl || '');
+        }
+      } catch (error) {
+        if (mounted) {
+          setPreviewError(error instanceof Error ? error.message : 'Unable to load PDF preview.');
+        }
+      }
+    }
+
+    loadPreview();
+    return () => {
+      mounted = false;
+    };
+  }, [document.id]);
 
   function formatDate(dateString: string | null) {
     if (!dateString) return '-';
@@ -95,6 +123,19 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
           </p>
         </div>
       )}
+
+      <div className={shared.sectionCard}>
+        <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>PDF Preview</h3>
+        {previewUrl && (
+          <iframe
+            title={`PDF preview for ${document.title}`}
+            src={previewUrl}
+            style={{ width: '100%', minHeight: '720px', border: '1px solid var(--border)', borderRadius: '8px', background: '#fff' }}
+          />
+        )}
+        {!previewUrl && !previewError && <p style={{ color: 'var(--muted)' }}>Loading PDF preview...</p>}
+        {previewError && <p style={{ color: '#991b1b' }}>{previewError}</p>}
+      </div>
 
       {/* Download Section */}
       <div className={shared.sectionCard}>

@@ -41,7 +41,7 @@ export default function WorkspaceSidebar({ role }) {
   ];
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className={`workspace-sidebar ${styles.sidebar}`}>
       <div>
         <p className={styles.brand}>LAWGDA</p>
         <p className={styles.roleBadge}>{ROLE_LABELS[role] ?? 'Staff'}</p>
@@ -56,14 +56,18 @@ export default function WorkspaceSidebar({ role }) {
             return item.permissions.some((permission) => hasPermission(role, permission));
           })
           .map((item) => (
-            <Link key={item.href} href={item.href} className={navItemClass(pathname, item.href)}>
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`${navItemClass(pathname, item.href)} workspace-navLink ${pathname === item.href || pathname.startsWith(`${item.href}/`) ? 'workspace-navLinkActive' : ''}`}
+            >
               {item.label}
             </Link>
           ))}
       </nav>
 
       <form action="/api/auth/signout" method="post" className={styles.signoutForm}>
-        <button type="submit" className={styles.signoutButton}>Sign out</button>
+        <button type="submit" className={`workspace-signoutButton ${styles.signoutButton}`}>Sign out</button>
       </form>
     </aside>
   );

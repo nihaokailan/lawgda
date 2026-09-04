@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import WorkspaceShell from '../../components/WorkspaceShell';
 import { requireAuthProfile } from '../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
+import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import DocumentViewClient from './DocumentViewClient';
 import Link from 'next/link';
 import shared from '../../../styles/shared.module.css';
@@ -21,11 +22,18 @@ export default async function DocumentViewPage({ params }: { params: { documentI
   const documentId = params.documentId;
 
   // Fetch document
-  const { data: document, error: docError } = await supabase
+  let { data: document, error: docError } = await supabase
     .from('documents')
     .select('*')
     .eq('id', documentId)
     .single();
+
+  if (docError || !document) {
+    const admin = getSupabaseAdmin();
+    const adminResult = await admin.from('documents').select('*').eq('id', documentId).maybeSingle();
+    document = adminResult.data;
+    docError = adminResult.error;
+  }
 
   if (docError || !document) {
     notFound();

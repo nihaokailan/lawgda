@@ -11,9 +11,11 @@ export default function ExternalSignerPage({ params }) {
   const [error, setError] = useState('');
   const [payload, setPayload] = useState(null);
   const [email, setEmail] = useState('');
+  const [signatureName, setSignatureName] = useState('');
   const [signing, setSigning] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState('');
+  const [signedUrl, setSignedUrl] = useState('');
 
   const loadRequest = useCallback(async (emailForVerification = '') => {
     const query = emailForVerification ? `?email=${encodeURIComponent(emailForVerification)}` : '';
@@ -55,7 +57,7 @@ export default function ExternalSignerPage({ params }) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, signatureName }),
     });
 
     const data = await response.json();
@@ -67,6 +69,7 @@ export default function ExternalSignerPage({ params }) {
     }
 
     setMessage('Signature recorded successfully. You may close this page.');
+    setSignedUrl(data.signedUrl || '');
     setPayload((prev) => ({
       ...prev,
       signingRequest: {
@@ -111,8 +114,15 @@ export default function ExternalSignerPage({ params }) {
                 </div>
 
                 {payload.document.reviewUrl && (
-                  <div className={shared.buttonGroup} style={{ marginTop: '1rem' }}>
-                    <a href={payload.document.reviewUrl} target="_blank" rel="noreferrer" className={shared.button}>Review Document</a>
+                  <div style={{ marginTop: '1rem' }}>
+                    <iframe
+                      title="Document preview"
+                      src={payload.document.reviewUrl}
+                      style={{ width: '100%', minHeight: '560px', border: '1px solid #dfe4ef', background: '#fff', borderRadius: '12px' }}
+                    />
+                    <div className={shared.buttonGroup} style={{ marginTop: '1rem' }}>
+                      <a href={payload.document.reviewUrl} target="_blank" rel="noreferrer" className={shared.button}>Review Document</a>
+                    </div>
                   </div>
                 )}
 
@@ -130,6 +140,15 @@ export default function ExternalSignerPage({ params }) {
 
                 {payload.signingRequest.status !== 'signed' && payload.document.reviewUrl && (
                   <div className={shared.formGrid} style={{ marginTop: '1rem' }}>
+                    <label className={shared.fieldLabel}>
+                      Type your full legal name as your signature
+                      <input
+                        className={shared.input}
+                        value={signatureName}
+                        onChange={(event) => setSignatureName(event.target.value)}
+                        placeholder={payload.signingRequest.signerName}
+                      />
+                    </label>
                     <button type="button" className={shared.button} onClick={handleSign} disabled={signing}>
                       {signing ? 'Signing...' : 'Sign Document'}
                     </button>
@@ -137,6 +156,11 @@ export default function ExternalSignerPage({ params }) {
                 )}
 
                 {message && <p className={`${shared.message} ${shared.messageSuccess}`}>{message}</p>}
+                {signedUrl && (
+                  <p className={shared.helpText} style={{ marginTop: '0.75rem' }}>
+                    <a href={signedUrl} target="_blank" rel="noreferrer">Open the signed PDF</a>
+                  </p>
+                )}
               </>
             )}
           </div>

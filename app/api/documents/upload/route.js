@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 
@@ -47,71 +48,43 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
     return { data: null, error: 'Unable to save document metadata after schema fallback attempts.' };
   }
 
+  const safeName = String(payload.fileName || payload.title || 'document.pdf').replace(/\s+/g, '-');
+  const recordTimestamp = new Date().toISOString();
+
   const attempts = [
     {
-      case_id: payload.caseId,
+      user_id: payload.userId,
       owner_id: payload.userId,
-      user_id: payload.userId,
-      title: payload.title,
+      uploaded_by: payload.userId,
+      bucket: payload.bucket,
+      path: payload.filePath,
       file_path: payload.filePath,
-      bucket: payload.bucket,
-      sha256_hash: payload.sha256Hash,
-      metadata: {
-        sha256_hash: payload.sha256Hash,
-        hash_recorded_at: new Date().toISOString(),
-      },
-      document_history: [
-        {
-          event: 'hash_recorded',
-          sha256_hash: payload.sha256Hash,
-          at: new Date().toISOString(),
-          by: payload.userId,
-        },
-      ],
+      title: payload.title,
       status: 'Drafting',
-    },
-    {
-      case_id: payload.caseId,
-      user_id: payload.userId,
-      name: payload.title,
-      filename: payload.title,
-      bucket: payload.bucket,
-      path: payload.filePath,
-      storage_path: payload.filePath,
       sha256_hash: payload.sha256Hash,
-      metadata: {
-        sha256_hash: payload.sha256Hash,
-        hash_recorded_at: new Date().toISOString(),
-      },
-      document_history: [
-        {
-          event: 'hash_recorded',
-          sha256_hash: payload.sha256Hash,
-          at: new Date().toISOString(),
-          by: payload.userId,
-        },
-      ],
-      status: 'Drafting',
+      created_at: recordTimestamp,
     },
     {
       user_id: payload.userId,
-      filename: payload.title,
+      owner_id: payload.userId,
+      uploaded_by: payload.userId,
       bucket: payload.bucket,
       path: payload.filePath,
-      sha256_hash: payload.sha256Hash,
-      metadata: {
-        sha256_hash: payload.sha256Hash,
-        hash_recorded_at: new Date().toISOString(),
-      },
-      document_history: [
-        {
-          event: 'hash_recorded',
-          sha256_hash: payload.sha256Hash,
-          at: new Date().toISOString(),
-          by: payload.userId,
-        },
-      ],
+      file_path: payload.filePath,
+      title: payload.title,
+      status: 'Drafting',
+      created_at: recordTimestamp,
     },
+    {
+      user_id: payload.userId,
+      owner_id: payload.userId,
+      uploaded_by: payload.userId,
+      path: payload.filePath,
+      file_path: payload.filePath,
+      title: payload.title,
+      status: 'Drafting',
+      created_at: recordTimestamp,
+    }
   ];
 
   let lastError = 'Unable to save document metadata.';
@@ -174,10 +147,20 @@ export async function POST(request) {
       return NextResponse.json({ error: uploadResult.error || 'Upload failed.' }, { status: 400 });
     }
 
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const orgId = profileError ? null : profileData?.org_id ?? null;
+
     const insertResult = await insertDocumentRecord(supabaseAdmin, {
       caseId,
       userId: user.id,
+      orgId,
       title,
+      fileName: safeName,
       filePath,
       bucket: uploadResult.bucket,
       sha256Hash,
@@ -198,6 +181,9 @@ export async function POST(request) {
         { onConflict: 'document_id,user_id' }
       );
     }
+
+    revalidatePath('/cases');
+    revalidatePath('/dashboard');
 
     return NextResponse.json({
       success: true,

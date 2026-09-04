@@ -1,5 +1,65 @@
 /* CSS variables moved to app/globals.css */
 
+.landingHeader {
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem clamp(1rem, 4vw, 4rem);
+  background: #6a0f1a;
+  color: #fff;
+}
+
+.landingBrand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  color: #fff;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1;
+}
+
+.landingBrand:hover { color: #fff; text-decoration: none; }
+
+.landingBrand small {
+  color: rgba(255, 255, 255, 0.86);
+  font-family: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.landingActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.landingActions a,
+.landingSignOut {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.landingActions a:hover,
+.landingSignOut:hover { background: rgba(255, 255, 255, 0.14); color: #fff; text-decoration: none; }
+
+.landingSignOut { cursor: pointer; }
+
 .nav {
   display: flex;
   justify-content: space-between;
@@ -158,8 +218,39 @@
 }
 
 .stepRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
   margin: 0 0 0.75rem;
   color: var(--crimson);
+}
+
+.step {
+  background: var(--surface-alt);
+  border: 1px solid rgba(106, 15, 26, 0.08);
+  border-radius: 22px;
+  padding: 1.5rem;
+  box-shadow: 0 14px 28px rgba(106, 15, 26, 0.04);
+}
+
+.step h3 {
+  margin: 0 0 0.75rem;
+  color: var(--crimson);
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.step h4 {
+  margin: 0 0 0.65rem;
+  color: var(--crimson-dark);
+  font-size: 1.12rem;
+}
+
+.step p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 @media (max-width: 900px) {
@@ -170,4 +261,9 @@
   .hero h1 {
     font-size: 2.8rem;
   }
+}
+
+@media (max-width: 560px) {
+  .landingHeader { align-items: flex-start; flex-direction: column; }
+  .landingActions { justify-content: flex-start; }
 }

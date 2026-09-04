@@ -1,7 +1,9 @@
 import WorkspaceShell from '../components/WorkspaceShell';
 import { requireAuthProfile } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
+import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
 import DashboardClient from './DashboardClient';
+import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
 
 type DocStatus = 'Drafting' | 'Pending' | 'Signed' | 'Filed';
 
@@ -35,10 +37,97 @@ function getFirstName(fullName: string | null | undefined, email: string | null 
   return email?.split('@')[0] ?? 'there';
 }
 
-async function loadDashboardData() {
+async function ensureStorageBackfillForUser(supabase: ReturnType<typeof createSupabaseServerClient>, userId: string) {
+  const metadataClient = getSupabaseAdmin();
+  const storageBuckets = ['secure_docs', 'evidence', 'org-documents'];
+
+  for (const bucket of storageBuckets) {
+    const storageItems = await listUserStorageFiles(supabase, bucket, userId);
+    for (const item of storageItems ?? []) {
+      if (!item.name || item.name.endsWith('/')) continue;
+
+      const path = item.path;
+      const title = path.split('/').pop() || path;
+      const ownerHint = path.split('/')[0];
+      const ownerId = /^\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b$/i.test(ownerHint)
+        ? ownerHint
+        : userId;
+
+      const { data: existingRows, error: checkError } = await metadataClient
+        .from('documents')
+        .select('id')
+        .or(`path.eq.${path},file_path.eq.${path}`)
+        .limit(1);
+
+      if (!checkError && (existingRows ?? []).length > 0) continue;
+
+      const candidates = [
+        {
+          owner_id: ownerId,
+          user_id: ownerId,
+          uploaded_by: ownerId,
+          bucket,
+          path,
+          file_path: path,
+          title,
+          status: 'Drafting',
+          created_at: item.updated_at ?? item.created_at ?? new Date().toISOString(),
+        },
+        {
+          owner_id: ownerId,
+          user_id: ownerId,
+          uploaded_by: ownerId,
+          bucket,
+          path,
+          file_path: path,
+          title,
+          status: 'Drafting',
+          created_at: item.updated_at ?? item.created_at ?? new Date().toISOString(),
+        },
+      ];
+
+      for (const candidate of candidates) {
+        const { error } = await metadataClient.from('documents').insert([candidate]);
+        if (!error) break;
+      }
+    }
+  }
+}
+
+async function loadDashboardData(userId: string) {
   const supabase = createSupabaseServerClient();
-  const docsResult = await supabase.from('documents').select('*').order('created_at', { ascending: false }).limit(100);
-  const rows = (docsResult.data ?? []) as Array<Record<string, unknown>>;
+  const supabaseAdmin = getSupabaseAdmin();
+  await ensureStorageBackfillForUser(supabase, userId);
+  let docsResult = await supabase
+    .from('documents')
+    .select('*')
+    .or(`owner_id.eq.${userId},uploaded_by.eq.${userId},user_id.eq.${userId}`)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (docsResult.error || !(docsResult.data ?? []).length) {
+    docsResult = await supabaseAdmin
+      .from('documents')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    docsResult.data = (docsResult.data ?? []).filter((record) => (
+      record.owner_id === userId || record.uploaded_by === userId || record.user_id === userId
+    ));
+  }
+
+  const rows = [...(docsResult.data ?? [])] as Array<Record<string, unknown>>;
+  const seen = new Set<string>();
+  const dedupedRows = rows.filter((row) => {
+    const key = String(
+      row.id ?? `${row.bucket ?? 'storage'}:${row.path ?? row.storage_path ?? row.name ?? row.filename ?? row.title ?? ''}`
+    );
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 
   const metrics = {
     Drafting: 0,
@@ -47,7 +136,7 @@ async function loadDashboardData() {
     Filed: 0,
   };
 
-  const recentDocuments: DashboardDocument[] = rows.slice(0, 20).map((record) => {
+  const recentDocuments: DashboardDocument[] = dedupedRows.slice(0, 20).map((record) => {
     const status = normalizeStatus(record.status);
     metrics[status] += 1;
     return {
@@ -59,7 +148,7 @@ async function loadDashboardData() {
     };
   });
 
-  rows.slice(20).forEach((record) => {
+  dedupedRows.slice(20).forEach((record) => {
     metrics[normalizeStatus(record.status)] += 1;
   });
 
@@ -68,7 +157,7 @@ async function loadDashboardData() {
 
 export default async function DashboardPage() {
   const { user, profile } = await requireAuthProfile();
-  const { metrics, recentDocuments } = await loadDashboardData();
+  const { metrics, recentDocuments } = await loadDashboardData(user.id);
 
   return (
     <WorkspaceShell

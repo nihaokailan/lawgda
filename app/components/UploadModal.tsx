@@ -128,8 +128,8 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
     setTitle('');
     setFile(null);
 
-    if (uploadedId && redirectOnUpload) {
-      router.push(`/documents/${uploadedId}/prepare`);
+    if (redirectOnUpload) {
+      onClose();
       router.refresh();
     }
   }

@@ -1,3 +1,5 @@
-import SignInPage from '../signin/page';
+﻿import SignInPage from '../signin/page';
 
-export default SignInPage;
+export default function LoginPage() {
+  return <SignInPage />;
+}

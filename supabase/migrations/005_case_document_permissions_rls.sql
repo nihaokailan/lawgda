@@ -50,22 +50,9 @@ set owner_id = coalesce(owner_id, user_id)
 where owner_id is null;
 
 update public.documents
-set title = coalesce(nullif(title, ''), nullif(name, ''), nullif(filename, ''), 'Untitled Document')
-where title is null or title = '';
 
-update public.documents
-set file_path = coalesce(nullif(file_path, ''), nullif(storage_path, ''), nullif(path, ''))
-where file_path is null or file_path = '';
-
-update public.documents
 set status = 'Drafting'
 where status is null or status = '';
-
-alter table public.documents
-  alter column owner_id set not null,
-  alter column title set not null,
-  alter column file_path set not null,
-  alter column status set not null;
 
 alter table public.documents
   drop constraint if exists documents_status_check;
@@ -143,13 +130,15 @@ on public.cases
 for delete
 using (owner_id = auth.uid());
 
--- Strict document visibility: owner OR explicitly listed in document_permissions.
+-- Strict document visibility: owner, uploader, legacy owner mapping, or explicitly listed in document_permissions.
 drop policy if exists documents_select_policy on public.documents;
 create policy documents_select_policy
 on public.documents
 for select
 using (
   owner_id = auth.uid()
+  or user_id = auth.uid()
+  or uploaded_by = auth.uid()
   or exists (
     select 1
     from public.document_permissions dp
@@ -162,20 +151,36 @@ drop policy if exists documents_insert_policy on public.documents;
 create policy documents_insert_policy
 on public.documents
 for insert
-with check (owner_id = auth.uid());
+with check (
+  owner_id = auth.uid()
+  or user_id = auth.uid()
+  or uploaded_by = auth.uid()
+);
 
 drop policy if exists documents_update_policy on public.documents;
 create policy documents_update_policy
 on public.documents
 for update
-using (owner_id = auth.uid())
-with check (owner_id = auth.uid());
+using (
+  owner_id = auth.uid()
+  or user_id = auth.uid()
+  or uploaded_by = auth.uid()
+)
+with check (
+  owner_id = auth.uid()
+  or user_id = auth.uid()
+  or uploaded_by = auth.uid()
+);
 
 drop policy if exists documents_delete_policy on public.documents;
 create policy documents_delete_policy
 on public.documents
 for delete
-using (owner_id = auth.uid());
+using (
+  owner_id = auth.uid()
+  or user_id = auth.uid()
+  or uploaded_by = auth.uid()
+);
 
 -- Only document owners can manage permissions.
 drop policy if exists document_permissions_select_policy on public.document_permissions;
@@ -264,44 +269,3 @@ using (
 insert into storage.buckets (id, name, public)
 values ('secure_docs', 'secure_docs', false)
 on conflict (id) do nothing;
-
-alter table storage.objects enable row level security;
-
-drop policy if exists secure_docs_read_authorized on storage.objects;
-create policy secure_docs_read_authorized
-on storage.objects
-for select
-using (
-  bucket_id = 'secure_docs'
-  and exists (
-    select 1
-    from public.documents d
-    left join public.document_permissions dp on dp.document_id = d.id
-    where d.file_path = storage.objects.name
-      and (d.owner_id = auth.uid() or dp.user_id = auth.uid())
-  )
-);
-
-drop policy if exists secure_docs_upload_authenticated on storage.objects;
-create policy secure_docs_upload_authenticated
-on storage.objects
-for insert
-with check (
-  bucket_id = 'secure_docs'
-  and auth.uid() is not null
-  and split_part(name, '/', 1) = auth.uid()::text
-);
-
-drop policy if exists secure_docs_delete_owner on storage.objects;
-create policy secure_docs_delete_owner
-on storage.objects
-for delete
-using (
-  bucket_id = 'secure_docs'
-  and exists (
-    select 1
-    from public.documents d
-    where d.file_path = storage.objects.name
-      and d.owner_id = auth.uid()
-  )
-);

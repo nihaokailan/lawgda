@@ -10,6 +10,12 @@ Supabase setup and migration guide for this project
   - `supabase/migrations/001_init.sql`
   - `supabase/migrations/002_roles_profiles.sql`
   - `supabase/migrations/003_external_signers_and_audit.sql`
+  - `supabase/migrations/004_public_signup_user_and_admin_safety.sql`
+  - `supabase/migrations/005_case_document_permissions_rls.sql`
+  - `supabase/migrations/006_canonical_profiles_and_documents.sql`
+  - `supabase/migrations/007_signing_requests.sql`
+  - `supabase/migrations/008_documents_org_scope.sql`
+  - `supabase/migrations/009_backfill_storage_documents.sql`
 - This creates the `cases`, `documents`, `user_profiles`, `internal_user_invitations`, `signing_requests`, and `signing_audit_events` tables, including Row Level Security (RLS), role-aware policies, and external-signer token workflow support.
 
 3) Create storage bucket
@@ -52,6 +58,16 @@ insert into documents (user_id, bucket, path, filename) values ('<user-id>', 'ev
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - `NEXT_PUBLIC_SITE_URL` (used for invitation and external signer links)
   - `SUPABASE_SERVICE_ROLE_KEY` (only if needed server-side)
+
+8) Send signing invitation emails
+- Create a Resend account and verify the sender domain or email address.
+- Add these server-only values to `.env.local`:
+```
+RESEND_API_KEY=re_your_api_key
+RESEND_FROM_EMAIL=Lawgda <signing@your-verified-domain.com>
+```
+- Restart `npm run dev` after changing `.env.local`.
+- Without these values, signing requests are saved but no email is sent; the server logs a temporary signing link instead.
 
 If you want, I can:
 - Create a small server API route to write `documents` rows after successful uploads.

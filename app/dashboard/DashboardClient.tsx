@@ -64,13 +64,14 @@ export default function DashboardClient({
 
   return (
     <>
-      <section className={styles.banner}>
-        <p className={styles.bannerLabel}>LAWDGA Workspace</p>
-        <h2 className={styles.bannerTitle}>Legal Document Operations Dashboard</h2>
-        <p className={styles.bannerSubtitle}>Track drafting progress, verify integrity, and inspect audit history from one workspace.</p>
-      </section>
+      <div className={styles.dashboardContent}>
+        <section className={styles.banner}>
+          <p className={styles.bannerLabel}>LAWDGA Workspace</p>
+          <h2 className={styles.bannerTitle}>Legal Document Operations Dashboard</h2>
+          <p className={styles.bannerSubtitle}>Track drafting progress, verify integrity, and inspect audit history from one workspace.</p>
+        </section>
 
-      <section className={styles.metricsGrid}>
+        <section className={styles.metricsGrid}>
         <article className={styles.metricCard}>
           <div className={styles.metricIconGray} aria-hidden="true">D</div>
           <div>
@@ -153,6 +154,7 @@ export default function DashboardClient({
           </div>
         )}
       </section>
+      </div>
 
       <UploadModal open={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploaded={onDocumentCreated} />
       <VerifyModal open={isVerifyOpen} onClose={() => setIsVerifyOpen(false)} />

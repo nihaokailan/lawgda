@@ -2,7 +2,6 @@
 
 import styles from './styles.module.css';
 import Link from 'next/link';
-import shared from '../../styles/shared.module.css';
 import { useEffect, useState } from 'react';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
@@ -13,10 +12,15 @@ export default function Landing() {
   const supabase = createSupabaseBrowserClient();
 
   useEffect(() => {
+    if (!supabase || !supabase.auth || typeof supabase.auth.getSession !== 'function') {
+      setLoading(false);
+      return;
+    }
+
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
-      
+
       if (session?.user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -25,15 +29,15 @@ export default function Landing() {
           .single();
         setUserRole(profile?.role || null);
       }
-      
+
       setLoading(false);
     };
 
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user || null);
-      
+
       if (session?.user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -47,9 +51,9 @@ export default function Landing() {
     });
 
     return () => {
-      subscription?.unsubscribe();
+      data?.subscription?.unsubscribe();
     };
-  }, [supabase.auth]);
+  }, [supabase]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -58,33 +62,32 @@ export default function Landing() {
 
   return (
     <main>
-      <header className={shared.topNav}>
-        <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
-          <span className={shared.topNavBrandName}>LAWGDA</span>
-          <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
+      <header className={styles.landingHeader}>
+        <Link href="/landing" className={styles.landingBrand} aria-label="Go to the Lawgda landing page">
+          <span>LAWGDA</span>
+          <small>Secure Electronic Evidence</small>
         </Link>
-        <nav className={shared.topNavActions}>
+        <nav className={styles.landingActions}>
           {user && (
             <>
-              <Link href="/cases" className={shared.topNavLink}>Documents</Link>
-              <Link href="/dashboard" className={shared.topNavLink}>Workspace</Link>
+              <Link href="/cases">Documents</Link>
+              <Link href="/dashboard">Workspace</Link>
               {userRole === 'administrator' && (
-                <Link href="/admin" className={shared.topNavLink} style={{ background: 'rgba(106, 15, 26, 0.15)', fontWeight: 600 }}>
+                <Link href="/admin">
                   Admin Panel
                 </Link>
               )}
-              <span className={shared.topNavUserEmail}>{user.email}</span>
+              <span>{user.email}</span>
               <button 
                 onClick={handleSignOut} 
-                className={`${shared.topNavLink} ${shared.topNavSignOut}`}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.75rem 1rem' }}
+                className={styles.landingSignOut}
               >
                 Sign Out
               </button>
             </>
           )}
           {!loading && !user && (
-            <Link href="/signin" className={`${shared.topNavLink} ${shared.topNavSignIn}`}>
+            <Link href="/signin">
               Sign In
             </Link>
           )}
@@ -92,7 +95,7 @@ export default function Landing() {
       </header>
 
       <section className={styles.hero}>
-        <div className="container">
+        <div className={styles.container}>
           <div className={styles.heroContent}>
             <p className={styles.heroTag}>Secure Digital Signing & Verification</p>
             <h1>Sign With Confidence. Verify With Certainty.</h1>

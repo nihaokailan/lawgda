@@ -13,10 +13,6 @@ $$;
 
 alter type app_role add value if not exists 'user';
 
-update user_profiles
-set role = 'user'::app_role
-where role::text in ('signer');
-
 alter table user_profiles
   alter column role set default 'user'::app_role;
 

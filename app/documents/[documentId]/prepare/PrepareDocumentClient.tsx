@@ -167,20 +167,90 @@ export default function PrepareDocumentClient({
   useEffect(() => {
     let mounted = true;
 
+    async function createPreviewUrl(bucket: string, filePath: string) {
+      if (!bucket || !filePath) {
+        return '';
+      }
+
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 120);
+      if (error || !data?.signedUrl) {
+        return '';
+      }
+
+      return data.signedUrl;
+    }
+
     async function loadPreviewUrls() {
-      if (document.filePath) {
-        const { data } = await supabase.storage.from(document.bucket).createSignedUrl(document.filePath, 120);
-        if (mounted) {
-          setOriginalUrl(data?.signedUrl || '');
+      let hasAuthorizedPreview = false;
+      try {
+        const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download`);
+        const payload = await response.json();
+        if (response.ok && payload.downloadUrl && mounted) {
+          hasAuthorizedPreview = true;
+          setOriginalUrl(payload.downloadUrl);
+        }
+      } catch {
+        // Fall back to direct Storage URL resolution below.
+      }
+
+      try {
+        const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download?version=signed`);
+        const payload = await response.json();
+        if (response.ok && payload.downloadUrl && mounted) {
+          setSignedUrl(payload.downloadUrl);
+        }
+      } catch {
+        // A signed PDF may not exist until a signer completes the workflow.
+      }
+
+      const candidateBuckets = Array.from(new Set([document.bucket, 'secure_docs', 'evidence', 'org-documents', 'documents'].filter(Boolean)));
+      const candidatePaths = Array.from(new Set([
+        document.filePath,
+        document.filePath?.replace(/^\//, ''),
+        document.filePath ? document.filePath.split('/').slice(1).join('/') : '',
+      ].filter(Boolean)));
+
+      let resolvedOriginal = '';
+      for (const bucket of candidateBuckets) {
+        for (const filePath of candidatePaths) {
+          const signedUrl = await createPreviewUrl(bucket, filePath);
+          if (signedUrl) {
+            resolvedOriginal = signedUrl;
+            break;
+          }
+        }
+        if (resolvedOriginal) {
+          break;
         }
       }
 
-      if (document.signedPath) {
-        const bucket = document.signedBucket || document.bucket;
-        const { data } = await supabase.storage.from(bucket).createSignedUrl(document.signedPath, 120);
-        if (mounted) {
-          setSignedUrl(data?.signedUrl || '');
+      if (mounted && !hasAuthorizedPreview) {
+        setOriginalUrl(resolvedOriginal);
+      }
+
+      let resolvedSigned = '';
+      const signedBuckets = Array.from(new Set([document.signedBucket, document.bucket, 'secure_docs', 'evidence', 'org-documents', 'documents'].filter(Boolean)));
+      const signedPaths = Array.from(new Set([
+        document.signedPath,
+        document.signedPath?.replace(/^\//, ''),
+        document.signedPath ? document.signedPath.split('/').slice(1).join('/') : '',
+      ].filter(Boolean)));
+
+      for (const bucket of signedBuckets) {
+        for (const filePath of signedPaths) {
+          const signedUrl = await createPreviewUrl(bucket, filePath);
+          if (signedUrl) {
+            resolvedSigned = signedUrl;
+            break;
+          }
         }
+        if (resolvedSigned) {
+          break;
+        }
+      }
+
+      if (mounted) {
+        setSignedUrl(resolvedSigned);
       }
     }
 
@@ -189,7 +259,7 @@ export default function PrepareDocumentClient({
     return () => {
       mounted = false;
     };
-  }, [document.bucket, document.filePath, document.signedBucket, document.signedPath, supabase]);
+  }, [document.id, document.bucket, document.filePath, document.signedBucket, document.signedPath, supabase]);
 
   function updateParticipant(id: string, field: keyof Participant, value: string) {
     setParticipants((current) => current.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
@@ -246,6 +316,13 @@ export default function PrepareDocumentClient({
     setError(false);
     setMessage('');
 
+    if (initialSigningRequests.length > 0) {
+      setSaving(false);
+      setError(true);
+      setMessage('A signing workflow has already been sent for this document. Create a new document workflow instead of sending duplicate links.');
+      return;
+    }
+
     const cleaned = participants
       .map((row) => ({
         ...row,
@@ -261,33 +338,51 @@ export default function PrepareDocumentClient({
       return;
     }
 
+    let unsentLink = '';
     for (let i = 0; i < cleaned.length; i += 1) {
       const row = cleaned[i];
 
-      const response = await fetch('/api/signing-requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          documentId: document.id,
-          signerType: 'external',
-          signerName: row.name,
-          signerEmail: row.email,
-          signingOrder: i + 1,
-          enforceSequential: true,
-        }),
-      });
+      let response;
+      let payload;
+      try {
+        response = await fetch('/api/signing-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            documentId: document.id,
+            signerType: 'external',
+            signerName: row.name,
+            signerEmail: row.email,
+            signingOrder: i + 1,
+            enforceSequential: true,
+          }),
+        });
+        payload = await response.json();
+      } catch {
+        setSaving(false);
+        setError(true);
+        setMessage('The signing service is unavailable. Confirm the app is running, then try again.');
+        return;
+      }
 
-      const payload = await response.json();
       if (!response.ok) {
         setSaving(false);
         setError(true);
         setMessage(payload.error || 'Unable to save signing workflow.');
         return;
       }
+
+      if (!payload.emailSent) {
+        unsentLink = payload.signingLink || unsentLink;
+      }
     }
 
     setSaving(false);
-    setMessage('Signing workflow saved. Participants were added in order.');
+    setMessage(
+      unsentLink
+        ? `Workflow saved, but email delivery is not configured. Temporary signing link: ${unsentLink}`
+        : 'Signing workflow saved and invitation emails were sent.'
+    );
   }
 
   return (
@@ -335,8 +430,8 @@ export default function PrepareDocumentClient({
           <button type="button" className={shared.linkButton} onClick={includeMe}>Include me</button>
         </div>
 
-        <button type="button" className={shared.button} onClick={saveWorkflow} disabled={saving}>
-          {saving ? 'Saving...' : 'Send'}
+        <button type="button" className={shared.button} onClick={saveWorkflow} disabled={saving || initialSigningRequests.length > 0}>
+          {saving ? 'Saving...' : initialSigningRequests.length > 0 ? 'Workflow sent' : 'Send signing links'}
         </button>
 
         {message && <p className={error ? prep.errorText : prep.successText}>{message}</p>}

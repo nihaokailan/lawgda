@@ -71,39 +71,25 @@ export default function UploadDocument() {
     const sha256 = toHex(digest);
     setHash(sha256);
 
-    const safeName = file.name.replace(/\s+/g, '-').toLowerCase();
-    const filePath = `${user.id}/${Date.now()}-${safeName}`;
+    const formData = new FormData();
+    formData.set('title', title.trim());
+    formData.set('sha256Hash', sha256);
+    formData.set('file', file);
 
-    const { error: uploadError } = await supabase.storage
-      .from('secure_docs')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: 'application/pdf',
-      });
+    const response = await fetch('/api/documents/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    const payload = await response.json();
 
-    if (uploadError) {
+    if (!response.ok) {
       setBusy(false);
       setError(true);
-      setMessage(`Upload failed: ${uploadError.message}`);
+      setMessage(`Upload failed: ${payload.error || 'Unable to upload document.'}`);
       return;
     }
-
-    const { error: insertError } = await supabase.from('documents').insert({
-      user_id: user.id,
-      title: title.trim(),
-      file_path: filePath,
-      sha256_hash: sha256,
-      status: 'Drafting',
-    });
 
     setBusy(false);
-
-    if (insertError) {
-      setError(true);
-      setMessage(`File uploaded but failed to save record: ${insertError.message}`);
-      return;
-    }
 
     setTitle('');
     setFile(null);

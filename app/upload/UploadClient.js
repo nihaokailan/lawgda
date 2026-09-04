@@ -144,22 +144,26 @@ export default function UploadClient({ profile }) {
       return;
     }
 
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const orgId = profileError ? null : profileData?.org_id ?? null;
+
     const { error: recordError } = await supabase.from('documents').insert([
       {
         user_id: user.id,
+        owner_id: user.id,
+        uploaded_by: user.id,
         bucket: 'evidence',
         path: filePath,
-        filename: file.name,
+        file_path: filePath,
+        title: file.name,
+        status: 'Drafting',
         sha256_hash: hashHex,
-        hash_recorded_at: new Date().toISOString(),
-        document_history: [
-          {
-            event: 'hash_recorded',
-            sha256_hash: hashHex,
-            at: new Date().toISOString(),
-            by: user.id,
-          },
-        ],
+        created_at: new Date().toISOString(),
       },
     ]);
 
