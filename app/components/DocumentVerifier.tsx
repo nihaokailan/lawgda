@@ -7,6 +7,7 @@ import styles from '../../../styles/workspace.module.css';
 type VerifyProps = {
   documentTitle: string;
   storedHash: string;
+  hashLabel?: string;
 };
 
 function toHex(buffer: ArrayBuffer) {
@@ -15,7 +16,7 @@ function toHex(buffer: ArrayBuffer) {
     .join('');
 }
 
-export default function DocumentVerifier({ documentTitle, storedHash }: VerifyProps) {
+export default function DocumentVerifier({ documentTitle, storedHash, hashLabel = 'Original SHA-256' }: VerifyProps) {
   const [file, setFile] = useState<File | null>(null);
   const [computedHash, setComputedHash] = useState('');
   const [verificationResult, setVerificationResult] = useState<'match' | 'mismatch' | null>(null);
@@ -73,7 +74,7 @@ export default function DocumentVerifier({ documentTitle, storedHash }: VerifyPr
 
       {storedHash && (
         <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f5f5f5', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all' }}>
-          <p style={{ margin: '0 0 0.75rem 0', fontWeight: 600, color: '#666' }}>Original SHA-256:</p>
+          <p style={{ margin: '0 0 0.75rem 0', fontWeight: 600, color: '#666' }}>{hashLabel}:</p>
           <p style={{ margin: 0, color: '#333' }}>{storedHash}</p>
         </div>
       )}
@@ -96,7 +97,7 @@ export default function DocumentVerifier({ documentTitle, storedHash }: VerifyPr
             ⚠️ Hash Mismatch
           </p>
           <p style={{ margin: '0.5rem 0 0 0', color: '#7f1d1d', fontSize: '0.9rem' }}>
-            The file hash does not match the original. The document may have been modified or corrupted. Do not use this file without further investigation.
+            The file hash does not match the expected document version. The document may have been modified or corrupted. Do not use this file without further investigation.
           </p>
         </div>
       )}

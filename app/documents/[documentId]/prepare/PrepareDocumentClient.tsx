@@ -31,11 +31,13 @@ function SortableParticipantCard({
   index,
   onUpdate,
   onRemove,
+  locked,
 }: {
   row: Participant;
   index: number;
   onUpdate: (id: string, field: keyof Participant, value: string) => void;
   onRemove: (id: string) => void;
+  locked: boolean;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
@@ -59,6 +61,7 @@ function SortableParticipantCard({
             type="button"
             className={prep.dragHandle}
             aria-label={`Drag participant ${index + 1}`}
+            disabled={locked}
             {...attributes}
             {...listeners}
           >
@@ -73,7 +76,7 @@ function SortableParticipantCard({
           </button>
           <span>#{index + 1}</span>
         </div>
-        <button type="button" className={prep.removeButton} onClick={() => onRemove(row.id)}>
+        <button type="button" className={prep.removeButton} onClick={() => onRemove(row.id)} disabled={locked}>
           Remove
         </button>
       </div>
@@ -85,6 +88,7 @@ function SortableParticipantCard({
           value={row.name}
           onChange={(event) => onUpdate(row.id, 'name', event.target.value)}
           placeholder="Participant name"
+          disabled={locked}
         />
       </label>
 
@@ -96,6 +100,7 @@ function SortableParticipantCard({
           value={row.email}
           onChange={(event) => onUpdate(row.id, 'email', event.target.value)}
           placeholder="email@example.com"
+          disabled={locked}
         />
       </label>
 
@@ -105,6 +110,7 @@ function SortableParticipantCard({
           className={prep.fieldInput}
           value={row.role}
           onChange={(event) => onUpdate(row.id, 'role', event.target.value)}
+          disabled={locked}
         >
           <option value="Signer">Signer</option>
           <option value="Approver">Approver</option>
@@ -163,6 +169,8 @@ export default function PrepareDocumentClient({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
+  const [workflowSent, setWorkflowSent] = useState(initialSigningRequests.length > 0);
+  const workflowLocked = workflowSent;
 
   useEffect(() => {
     let mounted = true;
@@ -342,7 +350,8 @@ export default function PrepareDocumentClient({
       return;
     }
 
-    let unsentLink = '';
+    let emailDeliveryError = '';
+    let deferredInvitationCount = 0;
     for (let i = 0; i < cleaned.length; i += 1) {
       const row = cleaned[i];
 
@@ -377,15 +386,40 @@ export default function PrepareDocumentClient({
       }
 
       if (!payload.emailSent) {
-        unsentLink = payload.signingLink || unsentLink;
+        emailDeliveryError = payload.emailError || 'Gmail could not deliver one or more signing invitations.';
+      }
+      if (payload.invitationDeferred) {
+        deferredInvitationCount += 1;
       }
     }
 
     setSaving(false);
+    setError(Boolean(emailDeliveryError));
     setMessage(
-      unsentLink
-        ? `Workflow saved, but email delivery is not configured. Temporary signing link: ${unsentLink}`
-        : 'Signing workflow saved and invitation emails were sent.'
+      emailDeliveryError
+        || (deferredInvitationCount > 0
+          ? 'Signing workflow saved. Invitations will be sent to each next signer when the preceding signer completes.'
+          : 'Signing workflow saved and invitation emails were sent.')
+    );
+    setWorkflowSent(true);
+  }
+
+  if (workflowSent) {
+    const sentParticipants = initialSigningRequests.length > 0 ? toParticipantRows(initialSigningRequests) : participants;
+    return (
+      <section className={shared.sectionCard}>
+        <h2 className={shared.cardTitle}>Signing workflow sent</h2>
+        <p className={shared.cardText}>The document is locked from further drafting changes. Signers will receive their invitations in order.</p>
+        <div style={{ display: 'grid', gap: '0.6rem', marginTop: '1rem' }}>
+          {sentParticipants.map((participant, index) => (
+            <div key={participant.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.6rem' }}>
+              <strong>#{index + 1} {participant.name}</strong>
+              <div className={shared.helpText}>{participant.email}</div>
+            </div>
+          ))}
+        </div>
+        {message && <p className={error ? prep.errorText : prep.successText} style={{ marginTop: '1rem' }}>{message}</p>}
+      </section>
     );
   }
 
@@ -423,6 +457,7 @@ export default function PrepareDocumentClient({
                   index={index}
                   onUpdate={updateParticipant}
                   onRemove={removeParticipant}
+                  locked={workflowLocked}
                 />
               ))}
             </div>
@@ -430,12 +465,12 @@ export default function PrepareDocumentClient({
         </DndContext>
 
         <div className={prep.buttonRow}>
-          <button type="button" className={shared.linkButton} onClick={addParticipant}>Add participant</button>
-          <button type="button" className={shared.linkButton} onClick={includeMe}>Include me</button>
+          <button type="button" className={shared.linkButton} onClick={addParticipant} disabled={workflowLocked}>Add participant</button>
+          <button type="button" className={shared.linkButton} onClick={includeMe} disabled={workflowLocked}>Include me</button>
         </div>
 
-        <button type="button" className={shared.button} onClick={saveWorkflow} disabled={saving || initialSigningRequests.length > 0}>
-          {saving ? 'Saving...' : initialSigningRequests.length > 0 ? 'Workflow sent' : 'Send signing links'}
+        <button type="button" className={shared.button} onClick={saveWorkflow} disabled={saving || workflowLocked}>
+          {saving ? 'Saving...' : workflowLocked ? 'Workflow locked' : 'Send signing links'}
         </button>
 
         {message && <p className={error ? prep.errorText : prep.successText}>{message}</p>}

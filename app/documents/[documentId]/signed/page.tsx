@@ -44,6 +44,9 @@ export default async function SignedDocumentPage({ params }: { params: { documen
   if (!allowed) redirect('/dashboard');
 
   const metadata = getMetadata(document.metadata);
+  const hashChain = Array.isArray(metadata.hash_chain)
+    ? metadata.hash_chain.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry))
+    : [];
   const { data: signingRequests } = await supabase
     .from('signing_requests')
     .select('signer_name,signer_email,status,signed_at')
@@ -108,6 +111,19 @@ export default async function SignedDocumentPage({ params }: { params: { documen
           )}
         </section>
       </div>
+
+      <section className={shared.sectionCard}>
+        <h2 className={shared.cardTitle}>Hash chain</h2>
+        {hashChain.length === 0 && <p className={shared.helpText}>No completed signature hashes recorded.</p>}
+        {hashChain.map((entry, index) => (
+          <div key={String(entry.signing_request_id || index)} style={{ borderBottom: '1px solid var(--border)', padding: '0.75rem 0' }}>
+            <p className={shared.cardText}><strong>Signer {index + 1}:</strong> {String(entry.signer_name || entry.signer_email || '-')}</p>
+            <p className={shared.helpText}><strong>Pre-sign SHA-256:</strong> {String(entry.pre_sign_hash || '-')}</p>
+            <p className={shared.helpText}><strong>Post-sign SHA-256:</strong> {String(entry.post_sign_hash || '-')}</p>
+            <p className={shared.helpText}><strong>Signed:</strong> {formatDate(entry.signed_at)}</p>
+          </div>
+        ))}
+      </section>
 
       <section className={shared.sectionCard}>
         <h2 className={shared.cardTitle}>Signed PDF</h2>

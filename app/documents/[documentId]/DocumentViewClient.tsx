@@ -11,6 +11,7 @@ type DocumentViewProps = {
     title: string;
     status: string;
     sha256_hash: string | null;
+    metadata: Record<string, unknown> | null;
     created_at: string | null;
     user_id: string;
   };
@@ -22,13 +23,19 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
   const [downloadedAt, setDownloadedAt] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewError, setPreviewError] = useState('');
+  const metadata = document.metadata && typeof document.metadata === 'object' ? document.metadata : {};
+  const signedHash = typeof metadata.post_sign_hash === 'string' ? metadata.post_sign_hash : '';
+  const hasSignedVersion = Boolean(signedHash && metadata.signed_file_path);
+  const expectedHash = signedHash || document.sha256_hash || '';
+  const hashLabel = hasSignedVersion ? 'Finished signed document SHA-256' : 'Original SHA-256';
+  const downloadVersion = hasSignedVersion ? '?version=signed' : '';
 
   useEffect(() => {
     let mounted = true;
 
     async function loadPreview() {
       try {
-        const response = await fetch(`/api/documents/${document.id}/download`);
+        const response = await fetch(`/api/documents/${document.id}/download${downloadVersion}`);
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || 'Unable to load PDF preview.');
@@ -47,7 +54,7 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
     return () => {
       mounted = false;
     };
-  }, [document.id]);
+  }, [document.id, downloadVersion]);
 
   function formatDate(dateString: string | null) {
     if (!dateString) return '-';
@@ -59,7 +66,7 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
     setDownloadError('');
 
     try {
-      const response = await fetch(`/api/documents/${document.id}/download`);
+      const response = await fetch(`/api/documents/${document.id}/download${downloadVersion}`);
 
       if (!response.ok) {
         const error = await response.json();
@@ -112,14 +119,14 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
       </div>
 
       {/* SHA-256 Hash Display */}
-      {document.sha256_hash && (
+      {expectedHash && (
         <div className={shared.sectionCard}>
           <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Document Hash</h3>
           <div style={{ padding: '1rem', background: '#f5f5f5', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', marginBottom: '1rem' }}>
-            {document.sha256_hash}
+            {expectedHash}
           </div>
           <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem' }}>
-            This SHA-256 hash uniquely identifies this version of the document. Any modification will produce a different hash.
+            This SHA-256 hash uniquely identifies the {hasSignedVersion ? 'finished signed' : 'original'} version of the document. Any modification will produce a different hash.
           </p>
         </div>
       )}
@@ -167,10 +174,11 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
       </div>
 
       {/* Verification Component */}
-      {document.sha256_hash && (
+      {expectedHash && (
         <DocumentVerifier 
           documentTitle={document.title}
-          storedHash={document.sha256_hash}
+          storedHash={expectedHash}
+          hashLabel={hashLabel}
         />
       )}
     </>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { sha256Hex } from '../../../../lib/documentHash';
 
 async function uploadWithFallbackBuckets(supabaseAdmin, filePath, file) {
   const buckets = ['secure_docs', 'evidence', 'org-documents'];
@@ -116,17 +117,12 @@ export async function POST(request) {
 
     const formData = await request.formData();
     const title = String(formData.get('title') || '').trim();
-    const sha256Hash = String(formData.get('sha256Hash') || '').trim();
     const caseIdRaw = String(formData.get('caseId') || '').trim();
     const caseId = caseIdRaw || null;
     const file = formData.get('file');
 
     if (!title) {
       return NextResponse.json({ error: 'Document title is required.' }, { status: 400 });
-    }
-
-    if (!sha256Hash) {
-      return NextResponse.json({ error: 'SHA-256 hash is required.' }, { status: 400 });
     }
 
     if (!(file instanceof File)) {
@@ -136,6 +132,8 @@ export async function POST(request) {
     if (file.type !== 'application/pdf') {
       return NextResponse.json({ error: 'Only PDF files are allowed.' }, { status: 400 });
     }
+
+    const sha256Hash = sha256Hex(await file.arrayBuffer());
 
     const safeName = file.name.replace(/\s+/g, '-').toLowerCase();
     const filePath = caseId

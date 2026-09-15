@@ -1,5 +1,19 @@
 # Lawgda
 
+## Gmail signing notifications
+
+Signing invitations are sent through the Gmail API as `lawgda.sign@gmail.com`. Configure a Google OAuth client with the Gmail send scope and set these server-only environment variables:
+
+```bash
+GMAIL_CLIENT_ID=...
+GMAIL_CLIENT_SECRET=...
+GMAIL_REFRESH_TOKEN=...
+```
+
+`GMAIL_ACCESS_TOKEN` is also supported for short-lived development tokens, but the refresh-token configuration is recommended.
+
+# Lawgda
+
 A starter Next.js + Supabase MVP scaffold for legal evidence tracking.
 
 ## Setup

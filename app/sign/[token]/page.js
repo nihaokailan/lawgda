@@ -4,6 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
 
+async function readApiPayload(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  return {
+    error: `Signing service returned an unexpected response (HTTP ${response.status}). Please refresh and try again.`,
+  };
+}
+
 export default function ExternalSignerPage({ params }) {
   const token = params?.token;
   const [loading, setLoading] = useState(true);
@@ -67,7 +78,7 @@ export default function ExternalSignerPage({ params }) {
     const query = emailForVerification ? `?email=${encodeURIComponent(emailForVerification)}` : '';
     try {
       const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}${query}`);
-      const data = await response.json();
+      const data = await readApiPayload(response);
       if (!response.ok) {
         throw new Error(data.error || 'Unable to load signing request.');
       }
@@ -131,7 +142,7 @@ export default function ExternalSignerPage({ params }) {
         },
         body: JSON.stringify({ email: email.trim().toLowerCase(), signatureName: signatureName.trim(), signatureDataUrl }),
       });
-      data = await response.json();
+      data = await readApiPayload(response);
     } catch {
       setSigning(false);
       setError('The signing service is unavailable. Please try again.');

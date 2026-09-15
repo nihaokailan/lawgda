@@ -76,7 +76,7 @@ export default async function DocumentPreparePage({ params }: { params: { docume
     redirect('/dashboard');
   }
 
-  if (['signed', 'filed'].includes(String(document.status || '').toLowerCase())) {
+  if (['pending', 'signed', 'filed'].includes(String(document.status || '').toLowerCase())) {
     redirect(`/documents/${documentId}`);
   }
 

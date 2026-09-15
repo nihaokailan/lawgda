@@ -23,7 +23,6 @@ export default function UploadClient({ profile }) {
   const [enforceSequential, setEnforceSequential] = useState(false);
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [creatingRequest, setCreatingRequest] = useState(false);
-  const [signingLink, setSigningLink] = useState('');
   const supabase = createBrowserSupabaseClient();
 
   const internalUserMap = useMemo(() => {
@@ -191,7 +190,6 @@ export default function UploadClient({ profile }) {
     setCreatingRequest(true);
     setMessage('');
     setError(false);
-    setSigningLink('');
 
     if (!selectedDocumentId) {
       setCreatingRequest(false);
@@ -249,8 +247,14 @@ export default function UploadClient({ profile }) {
       return;
     }
 
-    setMessage('Signing request created successfully.');
-    setSigningLink(payload.signingLink || '');
+    setError(!payload.emailSent);
+    setMessage(
+      payload.invitationDeferred
+        ? 'Signing request saved. The invitation will be sent when the previous signer completes.'
+        : payload.emailSent
+        ? 'Signing invitation email sent successfully.'
+        : `Signing request saved, but Gmail could not deliver the invitation: ${payload.emailError || 'Unknown delivery error.'}`
+    );
     setSignerType('external');
     setInternalSignerId('');
     setSignerName('');
@@ -378,13 +382,6 @@ export default function UploadClient({ profile }) {
           </form>
         )}
 
-        {signingLink && (
-          <div className={shared.cardBlock} style={{ marginTop: '1rem' }}>
-            <p className={shared.cardTitle}>Secure signing link</p>
-            <a href={signingLink} target="_blank" rel="noreferrer" className={shared.button}>Open signer link</a>
-            <p className={shared.cardText}>{signingLink}</p>
-          </div>
-        )}
       </div>
 
       <div className={shared.sectionCard}>
