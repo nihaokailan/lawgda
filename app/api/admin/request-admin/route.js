@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { PERMISSIONS } from '../../../../lib/rbac';
+import { requirePermission, rbacErrorResponse } from '../../../../lib/rbacMiddleware';
 
 export async function POST(request) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let user;
+  try {
+    ({ user } = await requirePermission(PERMISSIONS.REQUEST_ADMIN_ROLE));
+  } catch (error) {
+    return rbacErrorResponse(error);
   }
 
+  const supabase = createSupabaseServerClient();
   const body = await request.json();
   const organizationName = String(body?.organizationName ?? '').trim();
   const justification = String(body?.justification ?? '').trim();

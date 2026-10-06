@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import shared from '../../styles/shared.module.css';
 
@@ -11,6 +12,7 @@ function toHex(buffer) {
 }
 
 export default function UploadDocument() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -94,6 +96,10 @@ export default function UploadDocument() {
     setTitle('');
     setFile(null);
     setMessage('Document uploaded and hashed successfully.');
+
+    if (typeof payload.document?.id === 'string') {
+      router.push(`/documents/${payload.document.id}/prepare`);
+    }
   }
 
   return (

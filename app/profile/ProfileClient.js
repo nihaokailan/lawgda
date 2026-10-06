@@ -11,8 +11,8 @@ export default function ProfileClient({ initialProfile, email }) {
   const [firstName, setFirstName] = useState(nameParts[0] ?? '');
   const [lastName, setLastName] = useState(nameParts.slice(1).join(' '));
   const [accountEmail, setAccountEmail] = useState(email);
-  const [role, setRole] = useState(initialProfile.role ?? 'staff');
-  const [organizationId, setOrganizationId] = useState(initialProfile.org_id ?? '');
+  const role = initialProfile.role ?? 'normal';
+  const organizationId = initialProfile.org_id ?? '';
   const [isEditing, setIsEditing] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -22,7 +22,6 @@ export default function ProfileClient({ initialProfile, email }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
-  const isAdmin = initialProfile.role === 'admin';
   const supabase = createSupabaseBrowserClient();
 
   async function handleSave(e) {
@@ -72,7 +71,6 @@ export default function ProfileClient({ initialProfile, email }) {
     const profileUpdate = {
       email: accountEmail.trim() || null,
       full_name: `${firstName.trim()} ${lastName.trim()}`.trim() || null,
-      ...(isAdmin ? { role, org_id: organizationId.trim() || null } : {}),
     };
     const { error: updateError } = await supabase
       .from('profiles')

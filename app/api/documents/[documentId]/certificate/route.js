@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
-import { createSupabaseServerClient } from '../../../../../lib/supabase/server';
+import { loadAccessibleDocument } from '../../../../../lib/documentAccess';
+import { ROLES } from '../../../../../lib/rbac';
+import { requireWorkspaceMember, rbacErrorResponse } from '../../../../../lib/rbacMiddleware';
 
 export async function POST(request, { params }) {
   const documentId = String(params?.documentId || '').trim();
@@ -8,25 +10,16 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Document ID is required.' }, { status: 400 });
   }
 
-  const supabase = createSupabaseServerClient();
   const supabaseAdmin = getSupabaseAdmin();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { data: document, error: docError } = await supabase
-    .from('documents')
-    .select('id,user_id,owner_id,metadata,document_history')
-    .eq('id', documentId)
-    .single();
-
-  if (docError || !document) {
-    return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
+  let user;
+  let document;
+  try {
+    // Certificate workflow is a Lawyer action; no admin tier may reach it.
+    const context = await requireWorkspaceMember([ROLES.LAWYER]);
+    ({ user } = context);
+    document = await loadAccessibleDocument({ user, profile: context.profile, documentId });
+  } catch (error) {
+    return rbacErrorResponse(error);
   }
 
   const ownerId = document.owner_id ?? document.user_id;

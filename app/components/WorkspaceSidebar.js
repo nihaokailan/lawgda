@@ -14,16 +14,17 @@ export default function WorkspaceSidebar({ role }) {
   const pathname = usePathname();
 
   const items = [
-    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/dashboard', label: 'Dashboard', roles: ['normal', 'lawyer', 'staff'] },
+    { href: '/admin', label: 'Admin Dashboard', roles: ['admin'] },
+    {
+      href: '/platform',
+      label: 'Platform Administration',
+      roles: ['default_admin'],
+    },
     {
       href: '/cases',
       label: 'Documents',
       permissions: [PERMISSIONS.MANAGE_ASSIGNED_DOCUMENTS, PERMISSIONS.ORGANIZE_DOCUMENTS],
-    },
-    {
-      href: '/upload',
-      label: 'Request Signatures',
-      permissions: [PERMISSIONS.REQUEST_SIGNATURES],
     },
     {
       href: '/profile',
@@ -32,12 +33,15 @@ export default function WorkspaceSidebar({ role }) {
     {
       href: '/admin/request',
       label: 'Request Admin',
+      roles: ['normal'],
     },
     {
       href: '/admin/users',
       label: 'Provision Users',
       permissions: [PERMISSIONS.MANAGE_USERS_SYSTEM],
     },
+    { href: '/admin/repository', label: 'Repository', roles: ['admin'] },
+    { href: '/admin/audit', label: 'Audit Logs', roles: ['admin'] },
   ];
 
   return (
@@ -50,6 +54,12 @@ export default function WorkspaceSidebar({ role }) {
       <nav className={styles.nav}>
         {items
           .filter((item) => {
+            if (item.roles) {
+              return item.roles.includes(role);
+            }
+            if (role === 'default_admin') {
+              return false;
+            }
             if (!item.permissions) {
               return true;
             }

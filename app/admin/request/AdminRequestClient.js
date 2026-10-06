@@ -31,7 +31,7 @@ export default function AdminRequestClient({ profile }) {
       return;
     }
 
-    setMessage('Admin request submitted. An existing admin must approve and assign your organization.');
+    setMessage('Request submitted. The platform\'s Default Admin must approve it before your organization is created.');
     setOrganizationName('');
     setJustification('');
   }

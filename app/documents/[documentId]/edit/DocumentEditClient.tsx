@@ -1,5 +1,6 @@
 'use client';
 
+import AuditTrailList, { type AuditTrailEntry } from '../../../components/AuditTrailList';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../../../lib/supabase/client';
@@ -74,13 +75,13 @@ export default function DocumentEditClient({
     metadata: Record<string, unknown> | null;
   };
   signingRequests: SigningRequest[];
-  auditTrail: AuditEntry[];
+  auditTrail: AuditTrailEntry[];
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [previewUrl, setPreviewUrl] = useState('');
   const [signingRequests, setSigningRequests] = useState<SigningRequest[]>(initialSigningRequests);
-  const [auditTrail, setAuditTrail] = useState<AuditEntry[]>(initialAuditTrail);
+  const [auditTrail, setAuditTrail] = useState<AuditTrailEntry[]>(initialAuditTrail);
   const [signerName, setSignerName] = useState('');
   const [signerEmail, setSignerEmail] = useState('');
   const [signingOrder, setSigningOrder] = useState(1);
@@ -322,15 +323,7 @@ export default function DocumentEditClient({
 
         <div className={styles.editorPaper}>
           <h3 className={styles.sectionTitle}>Audit Trail and Signatures</h3>
-          <ul className={styles.activityList}>
-            {auditTrail.length === 0 && <li className={styles.activityItem}>No audit entries yet.</li>}
-            {auditTrail.map((entry) => (
-              <li key={entry.id} className={styles.activityItem}>
-                <strong>{entry.event_type}</strong>
-                <span className={styles.activityMeta}>{new Date(entry.created_at).toLocaleString()}</span>
-              </li>
-            ))}
-          </ul>
+          <AuditTrailList entries={auditTrail} maxHeight={360} />
         </div>
 
         {message && <p className={error ? styles.alertError : styles.alertSuccess}>{message}</p>}

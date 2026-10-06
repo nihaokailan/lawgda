@@ -1,6 +1,8 @@
 import WorkspaceShell from '../components/WorkspaceShell';
 import DocumentsWorkspaceClient from './DocumentsWorkspaceClient';
-import { requireAuthProfile } from '../../lib/authGuard';
+import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
+import { loadMySigningTurns } from '../../lib/signingTurn';
+import { requireDocumentAccess } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { ROLE_LABELS } from '../../lib/roles';
 import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
@@ -18,7 +20,8 @@ function normalizeStatus(value) {
   const status = String(value || '').toLowerCase();
   if (status.includes('draft')) return 'Drafts';
   if (status.includes('pending')) return 'Pending';
-  if (status.includes('signed') || status.includes('file')) return 'Completed';
+  if (status.includes('file')) return 'Filed';
+  if (status.includes('signed')) return 'Signed';
   if (status.includes('cancel')) return 'Cancelled';
   if (status.includes('deny')) return 'Denied';
   if (status.includes('decline')) return 'Declined';
@@ -103,7 +106,7 @@ function getInitials(label) {
 }
 
 export default async function CasesPage() {
-  const { user, profile } = await requireAuthProfile('/signin');
+  const { user, profile } = await requireDocumentAccess('/admin/repository');
   const supabase = createSupabaseServerClient();
 
   let rawDocs = await loadDocumentsForCasesPage(supabase);
@@ -111,7 +114,8 @@ export default async function CasesPage() {
     rawDocs = await loadAdminDocumentFallback(user.id);
   }
   const storageDocs = await loadUserStorageDocuments(supabase, user.id);
-  const allDocs = [...rawDocs, ...storageDocs];
+  const sharedDocs = await loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id);
+  const allDocs = [...rawDocs, ...sharedDocs, ...storageDocs];
 
   const userOwnedDocs = allDocs.filter((record) => {
     const ownerId = record.owner_id ?? record.user_id ?? null;
@@ -132,6 +136,10 @@ export default async function CasesPage() {
       permissionDocIds = new Set((permissionResult.data || []).map((row) => row.document_id));
     }
   }
+
+  sharedDocs.forEach((record) => permissionDocIds.add(record.id));
+
+  const turns = await loadMySigningTurns(getSupabaseAdmin(), user.email, allDocs.map((doc) => doc.id));
 
   const documents = [...userOwnedDocs, ...allDocs]
     .filter((record, index, array) => array.findIndex((item) => item.id === record.id) === index)
@@ -159,6 +167,7 @@ export default async function CasesPage() {
         ownerLabel,
         ownerInitials: getInitials(ownerLabel === 'You' ? profile.full_name || user.email || 'You' : ownerLabel),
         tags: ['Legal'],
+        myAction: turns.get(record.id)?.state ?? null,
       };
     })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());

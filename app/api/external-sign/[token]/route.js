@@ -5,6 +5,11 @@ import { logSigningAuditEvent } from '../../../../lib/signingAudit';
 import { addElectronicSignature } from '../../../../lib/signedPdf';
 import { sha256Hex } from '../../../../lib/documentHash';
 import { generateSigningToken, hashSigningToken } from '../../../../lib/signingTokens';
+import { transitionDocumentStatus } from '../../../../lib/documentLifecycle';
+import { ensureUserSigningKey } from '../../../../lib/userSigningKeys';
+import { ensureExternalSignerKey } from '../../../../lib/externalSignerKeys';
+import { signWithWrappedKey, signRsaDigestWithPrivateKey } from '../../../../lib/keyWrapping';
+import { extractKeyAndCertFromP12 } from '../../../../lib/pkcs12';
 import { sendSigningInvitationEmail } from '../../../../lib/email';
 import { randomBytes } from 'node:crypto';
 import QRCode from 'qrcode';
@@ -15,6 +20,7 @@ function buildError(reason) {
     expired: 'This signing link has expired.',
     revoked: 'This signing request was revoked.',
     already_completed: 'This signing request has already been completed.',
+    staff_not_allowed: 'Staff members are not allowed to sign documents. Ask the sender to assign a different signer.',
     not_your_turn: 'This signer cannot sign yet because previous signers are still pending.',
   };
   return messages[reason] ?? 'Signing request is not available.';
@@ -129,8 +135,12 @@ export async function POST(request, { params }) {
   const token = params?.token;
   const body = await request.json();
   const providedEmail = String(body?.email ?? '').trim().toLowerCase();
-  const signatureName = String(body?.signatureName ?? '').trim();
+  let signatureName = String(body?.signatureName ?? '').trim();
   const signatureDataUrl = String(body?.signatureDataUrl ?? '').trim();
+  const signingMethod = body?.signingMethod === 'dict' ? 'dict' : 'standard';
+  const clientDocumentHash = String(body?.documentHash ?? '').trim().toLowerCase();
+  const p12Base64 = String(body?.p12Base64 ?? '').trim();
+  const p12Passphrase = String(body?.p12Passphrase ?? '');
 
   const { request: signingRequest, reason } = await resolveSigningRequestByToken(token);
 
@@ -150,12 +160,31 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Signer identity could not be verified.' }, { status: 403 });
   }
 
-  if (!signatureName) {
+  if (signingMethod !== 'dict' && !signatureName) {
     return NextResponse.json({ error: 'Type your full name to sign the document.' }, { status: 400 });
   }
 
-  if (!/^data:image\/png;base64,/.test(signatureDataUrl)) {
-    return NextResponse.json({ error: 'Draw your signature before signing the document.' }, { status: 400 });
+  if (signingMethod === 'dict') {
+    if (!p12Base64 || !p12Passphrase) {
+      return NextResponse.json({ error: 'Upload your signing certificate (.p12 or .pfx) and enter its passphrase.' }, { status: 400 });
+    }
+  } else if (!/^data:image\/png;base64,/.test(signatureDataUrl)) {
+    return NextResponse.json({ error: 'Draw or upload your signature before signing the document.' }, { status: 400 });
+  }
+
+  if (body?.action === 'preview_certificate') {
+    if (signingMethod !== 'dict') {
+      return NextResponse.json({ error: 'Choose certificate signing to preview a certificate.' }, { status: 400 });
+    }
+    let extracted;
+    try {
+      extracted = extractKeyAndCertFromP12(p12Base64, p12Passphrase);
+      return NextResponse.json({ certificate: extracted.details }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch (error) {
+      return NextResponse.json({ error: error.message || 'Unable to read certificate.' }, { status: 400 });
+    } finally {
+      extracted?.privateKeyDer.fill(0);
+    }
   }
 
   await logSigningAuditEvent({
@@ -196,12 +225,45 @@ export async function POST(request, { params }) {
   const now = new Date().toISOString();
   const sourceBytes = await originalFile.arrayBuffer();
   const preSignHash = sha256Hex(sourceBytes);
-  const { data: otherSigningRequests } = await supabaseAdmin
+
+  if (clientDocumentHash && clientDocumentHash !== preSignHash) {
+    return NextResponse.json({ error: 'The document hash computed in your browser does not match the document on file. Please refresh and try again.' }, { status: 409 });
+  }
+
+  let certificateSubjectCn = '';
+  let certificateDetails = null;
+  let certificateSignature = null;
+  let certificatePem = null;
+  if (signingMethod === 'dict') {
+    let extracted;
+    try {
+      extracted = extractKeyAndCertFromP12(p12Base64, p12Passphrase);
+    } catch (p12Error) {
+      return NextResponse.json({ error: p12Error instanceof Error ? p12Error.message : 'Unable to read the uploaded certificate.' }, { status: 400 });
+    }
+    certificateDetails = extracted.details;
+    signatureName = certificateDetails.holderName;
+    certificateSubjectCn = signatureName;
+
+    try {
+      certificateSignature = signRsaDigestWithPrivateKey(extracted.privateKeyDer, Buffer.from(preSignHash, 'hex'));
+      certificatePem = extracted.certificatePem;
+    } catch (error) {
+      return NextResponse.json({ error: 'Unable to sign with the private key in this certificate.' }, { status: 400 });
+    } finally {
+      extracted.privateKeyDer.fill(0);
+    }
+  }
+
+  const { data: otherSigningRequests, error: otherSigningRequestsError } = await supabaseAdmin
     .from('signing_requests')
     .select('status')
     .eq('document_id', signingRequest.document_id)
     .neq('id', signingRequest.id);
-  const allSignersCompleted = (otherSigningRequests ?? []).every((signingRequestRow) => signingRequestRow.status === 'signed');
+  if (otherSigningRequestsError || !otherSigningRequests) {
+    return NextResponse.json({ error: 'Unable to verify the remaining signers. Please try again.' }, { status: 500 });
+  }
+  const allSignersCompleted = otherSigningRequests.every((signingRequestRow) => signingRequestRow.status === 'signed');
   const auditToken = allSignersCompleted
     ? String(metadata.audit_token || `av_${randomBytes(32).toString('base64url')}`)
     : '';
@@ -217,7 +279,9 @@ export async function POST(request, { params }) {
       signerEmail: providedEmail,
       signedAt: now,
       requestId: signingRequest.id,
-      signatureDataUrl,
+      signatureDataUrl: signingMethod === 'dict' ? '' : signatureDataUrl,
+      certificateSubjectCn: signingMethod === 'dict' ? certificateSubjectCn : '',
+      certificateDetails,
       previousDocumentHash: preSignHash,
       signaturePageIndex: metadata.signature_page_index,
       signatureCount: existingHashChain.length,
@@ -230,6 +294,28 @@ export async function POST(request, { params }) {
   }
 
   const postSignHash = sha256Hex(signedPdf);
+  let cryptographicSignature = null;
+  let signingPublicKey = null;
+  let signatureCertificatePem = null;
+  let signatureCovers = null;
+  if (signingMethod === 'dict') {
+    cryptographicSignature = certificateSignature;
+    signatureCertificatePem = certificatePem;
+    signatureCovers = 'pre_sign_hash';
+  } else {
+    try {
+      const userKey = signingRequest.internal_signer_id
+        ? await ensureUserSigningKey(supabaseAdmin, signingRequest.internal_signer_id)
+        : await ensureExternalSignerKey(supabaseAdmin, providedEmail);
+      cryptographicSignature = signWithWrappedKey(userKey.wrappedPrivateKey, Buffer.from(postSignHash, 'hex'));
+      signingPublicKey = userKey.publicKeyPem;
+      signatureCovers = 'post_sign_hash';
+    } catch (keyError) {
+      // The visual signature and hash chain remain valid evidence even if
+      // key management is temporarily unavailable, so signing still completes.
+      console.error('[signing] Unable to apply cryptographic signature:', keyError);
+    }
+  }
   const signedPath = `signed/${document.id}/${signingRequest.signing_order}-${signingRequest.id}-signed.pdf`;
   const { error: uploadError } = await supabaseAdmin.storage.from(bucket).upload(
     signedPath,
@@ -241,7 +327,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: `Unable to save signed PDF: ${uploadError.message}` }, { status: 500 });
   }
 
-  let { error: signError } = await supabaseAdmin
+  let { data: signedRows, error: signError } = await supabaseAdmin
     .from('signing_requests')
     .update({
       status: 'signed',
@@ -249,10 +335,18 @@ export async function POST(request, { params }) {
       pre_sign_hash: preSignHash,
       post_sign_hash: postSignHash,
       signed_file_path: signedPath,
+      signing_method: signingMethod,
     })
-    .eq('id', signingRequest.id);
+    .eq('id', signingRequest.id)
+    .in('status', ['pending', 'viewed'])
+    .select('id');
 
-  if (signError?.message?.includes("'post_sign_hash' column")) {
+  // Another submission (email link or in-app) completed this request first.
+  if (!signError && (!signedRows || signedRows.length === 0)) {
+    return NextResponse.json({ error: buildError('already_completed'), reason: 'already_completed' }, { status: 409 });
+  }
+
+  if (signError?.message?.includes("'post_sign_hash' column") || signError?.message?.includes("'signing_method' column")) {
     ({ error: signError } = await supabaseAdmin
       .from('signing_requests')
       .update({ status: 'signed', signed_at: now })
@@ -285,12 +379,17 @@ export async function POST(request, { params }) {
     post_sign_hash: postSignHash,
     signed_file_path: signedPath,
     signed_at: now,
+    signing_method: signingMethod,
+    cryptographic_signature: cryptographicSignature,
+    signature_covers: signatureCovers,
+    signing_public_key: signingPublicKey,
+    certificate_pem: signatureCertificatePem,
+    certificate_details: certificateDetails,
   };
   hashChain.push(chainEntry);
   const { error: documentUpdateError } = await supabaseAdmin
     .from('documents')
     .update({
-      status: allSignersCompleted ? 'Signed' : 'Pending',
       document_history: history,
       metadata: {
         ...currentMetadata,
@@ -312,6 +411,13 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: `Signed PDF was saved but document metadata could not be updated: ${documentUpdateError.message}` }, { status: 500 });
   }
 
+  const statusTransition = await transitionDocumentStatus({
+    documentId: signingRequest.document_id,
+    toStatus: allSignersCompleted ? 'Filed' : 'Pending',
+    reason: allSignersCompleted ? 'final_signature_completed' : 'signature_recorded',
+    extraDetails: { signing_request_id: signingRequest.id, signer_email: providedEmail },
+  });
+
   await logSigningAuditEvent({
     signingRequestId: signingRequest.id,
     documentId: signingRequest.document_id,
@@ -320,6 +426,11 @@ export async function POST(request, { params }) {
     actorEmail: providedEmail,
     details: { ...chainEntry },
   });
+
+  if (allSignersCompleted && !statusTransition.transitioned && statusTransition.fromStatus !== 'Filed') {
+    console.error('[signing] Unable to file completed document:', statusTransition.error);
+    return NextResponse.json({ error: 'Your signature and signed PDF were saved, but the document could not be marked Filed. Please contact the document owner.' }, { status: 500 });
+  }
 
   const { data: nextSigner } = await supabaseAdmin
     .from('signing_requests')

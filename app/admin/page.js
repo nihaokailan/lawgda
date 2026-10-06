@@ -3,22 +3,19 @@ import { ROLES } from '../../lib/roles';
 import WorkspaceShell from '../components/WorkspaceShell';
 import AdminDashboardClient from './AdminDashboardClient';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
+import { loadOrgName } from '../../lib/orgRepository';
 
 export default async function AdminDashboardPage() {
   const { user, profile } = await requireRole([ROLES.ADMIN]);
 
-  // Fetch admin requests
+  // Fetch this organization's users only — RLS (is_admin_of_org) already
+  // restricts this to profile.org_id, the explicit filter is defense in depth.
+  const orgName = await loadOrgName(profile.org_id);
   const supabase = createSupabaseServerClient();
-  const { data: adminRequests } = await supabase
-    .from('profiles')
-    .select('user_id,email,full_name,admin_request_status,admin_request_note,admin_requested_at')
-    .eq('admin_request_status', 'pending')
-    .order('admin_requested_at', { ascending: false });
-
-  // Fetch all users
   const { data: allUsers } = await supabase
     .from('profiles')
-    .select('user_id,email,full_name,role,org_id,admin_request_status')
+    .select('user_id,email,full_name,role,org_id,created_at')
+    .eq('org_id', profile.org_id)
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -26,10 +23,9 @@ export default async function AdminDashboardPage() {
     <WorkspaceShell
       profile={profile}
       title="Admin Dashboard"
-      subtitle="Manage admin requests, users, and organization settings."
+      subtitle={`${orgName} \u2014 manage your law firm's Lawyers and Staff.`}
     >
-      <AdminDashboardClient 
-        adminRequests={adminRequests || []} 
+      <AdminDashboardClient
         allUsers={allUsers || []}
         currentUserId={user.id}
         currentOrgId={profile.org_id}

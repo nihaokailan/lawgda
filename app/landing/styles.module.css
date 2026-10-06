@@ -1,5 +1,37 @@
 /* CSS variables moved to app/globals.css */
 
+.joinSection {
+  background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
+  color: #fff;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.joinSection h2 {
+  margin: 0.4rem 0 0.75rem;
+  font-family: Georgia, serif;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.joinTag {
+  display: inline-flex;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  margin: 0;
+}
+
+.joinDescription {
+  margin: 0 auto 2rem;
+  max-width: 640px;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.75;
+}
+
 .landingHeader {
   min-height: 70px;
   display: flex;

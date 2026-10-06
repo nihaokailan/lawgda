@@ -168,6 +168,7 @@ button {
   font-weight: 500;
   font-size: 0.78rem;
   text-decoration: none;
+  align-self: start;
 }
 
 .workspace-navLinkActive {

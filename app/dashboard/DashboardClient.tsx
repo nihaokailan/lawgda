@@ -1,12 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import StatusBadge from '../components/StatusBadge';
 import DocumentRowActionsDropdown from '../components/DocumentRowActionsDropdown';
 import UploadModal from '../components/UploadModal';
 import VerifyModal from '../components/VerifyModal';
 import ScanModal from '../components/ScanModal';
+import Pagination from '../components/Pagination';
+import SignNowButton from '../components/SignNowButton';
 import styles from '../../styles/dashboard.module.css';
+
+const PAGE_SIZE = 8;
 
 type DashboardDocument = {
   id: string | null;
@@ -14,6 +19,7 @@ type DashboardDocument = {
   status: 'Drafting' | 'Pending' | 'Signed' | 'Filed';
   sha256Hash: string | null;
   createdAt: string | null;
+  myAction?: 'sign' | 'waiting' | null;
 };
 
 type DashboardMetrics = {
@@ -38,20 +44,28 @@ function hashSnippet(value: string | null) {
 export default function DashboardClient({
   initialDocuments,
   initialMetrics,
+  userName,
 }: {
   initialDocuments: DashboardDocument[];
   initialMetrics: DashboardMetrics;
+  userName: string;
 }) {
+  const router = useRouter();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
   const [isScanOpen, setIsScanOpen] = useState(false);
   const [documents, setDocuments] = useState<DashboardDocument[]>(initialDocuments);
   const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
+  const [page, setPage] = useState(1);
 
   const totalDocs = useMemo(
     () => metrics.Drafting + metrics.Pending + metrics.Signed + metrics.Filed,
     [metrics]
   );
+
+  const pageCount = Math.max(1, Math.ceil(documents.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedDocuments = documents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function onDocumentCreated(newDocument: DashboardDocument) {
     const nextDocs = [newDocument, ...documents].slice(0, 20);
@@ -60,6 +74,7 @@ export default function DashboardClient({
       ...prev,
       Drafting: prev.Drafting + 1,
     }));
+    setPage(1);
   }
 
   return (
@@ -67,7 +82,7 @@ export default function DashboardClient({
       <div className={styles.dashboardContent}>
         <section className={styles.banner}>
           <p className={styles.bannerLabel}>LAWDGA Workspace</p>
-          <h2 className={styles.bannerTitle}>Legal Document Operations Dashboard</h2>
+          <h2 className={styles.bannerTitle}>Welcome, {userName}!</h2>
           <p className={styles.bannerSubtitle}>Track drafting progress, verify integrity, and inspect audit history from one workspace.</p>
         </section>
 
@@ -136,21 +151,32 @@ export default function DashboardClient({
                 </tr>
               </thead>
               <tbody>
-                {documents.map((document) => (
-                  <tr key={document.id ?? `${document.title}-${document.createdAt}`}>
+                {pagedDocuments.map((document) => (
+                  <tr
+                    key={document.id ?? `${document.title}-${document.createdAt}`}
+                    style={{ cursor: document.id ? 'pointer' : undefined }}
+                    onClick={() => { if (document.id) router.push(`/documents/${document.id}/prepare`); }}
+                  >
                     <td>{document.title}</td>
                     <td>
-                      <StatusBadge status={document.status} />
+                      {document.id && document.myAction === 'sign' ? (
+                        <SignNowButton documentId={document.id} label="Pending your signature — Sign now" className={`${styles.statusBadge} ${styles.badgePending}`} style={{ cursor: 'pointer', border: 0 }} />
+                      ) : document.myAction === 'waiting' ? (
+                        <span className={`${styles.statusBadge} ${styles.badgeDrafting}`}>Waiting for other signers</span>
+                      ) : (
+                        <StatusBadge status={document.status} />
+                      )}
                     </td>
                     <td className={styles.monoCell}>{hashSnippet(document.sha256Hash)}</td>
                     <td>{formatDate(document.createdAt)}</td>
-                    <td>
-                      <DocumentRowActionsDropdown document={document} openUp={documents.length <= 3} />
+                    <td onClick={(event) => event.stopPropagation()}>
+                      <DocumentRowActionsDropdown document={document} openUp={pagedDocuments.length <= 3} />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
           </div>
         )}
       </section>

@@ -158,6 +158,13 @@
   transform: translateY(-1px);
 }
 
+.primaryActionButton:disabled,
+.secondaryActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .primaryAction {
   background: var(--crimson);
   color: #fff;

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from './lib/supabase/middleware';
 
-const protectedRoutes = ['/dashboard', '/cases', '/upload', '/profile', '/admin'];
+const protectedRoutes = ['/dashboard', '/cases', '/upload', '/profile', '/admin', '/platform'];
+const exactProtectedRoutes = ['/verify'];
 const authRoutes = ['/signin', '/login'];
 
 function startsWithAny(pathname: string, routes: string[]) {
@@ -15,7 +16,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
-  const isProtected = startsWithAny(pathname, protectedRoutes);
+  const isProtected = startsWithAny(pathname, protectedRoutes) || exactProtectedRoutes.includes(pathname);
   const isAuthRoute = startsWithAny(pathname, authRoutes);
 
   if (isProtected && !user) {
@@ -36,5 +37,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/cases/:path*', '/upload/:path*', '/profile/:path*', '/admin/:path*', '/signin', '/login'],
+  matcher: ['/dashboard/:path*', '/cases/:path*', '/upload/:path*', '/profile/:path*', '/admin/:path*', '/platform/:path*', '/verify', '/signin', '/login'],
 };

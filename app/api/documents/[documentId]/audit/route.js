@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '../../../../../lib/supabase/server';
+import { loadAccessibleDocument } from '../../../../../lib/documentAccess';
+import { getAuthContext, assertCanViewDocumentContent, rbacErrorResponse } from '../../../../../lib/rbacMiddleware';
+import { logDocumentAuditEvent } from '../../../../../lib/auditLog';
+import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
+import { loadDocumentAuditHistory } from '../../../../../lib/documentAuditHistory';
+import { enrichAuditEntries } from '../../../../../lib/auditPresentation';
 
 export async function GET(_request, { params }) {
   const documentId = String(params?.documentId || '').trim();
@@ -7,64 +12,40 @@ export async function GET(_request, { params }) {
     return NextResponse.json({ error: 'Document ID is required.' }, { status: 400 });
   }
 
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const admin = getSupabaseAdmin();
+  let user;
+  let document;
+  try {
+    // Document-level audit trails expose signer details, so they follow the
+    // same owner/permission + organization rules as the document itself.
+    const context = await getAuthContext();
+    ({ user } = context);
+    assertCanViewDocumentContent(context.profile.role);
+    document = await loadAccessibleDocument({ user, profile: context.profile, documentId });
+  } catch (error) {
+    return rbacErrorResponse(error);
   }
 
-  const { data: document, error: docError } = await supabase
-    .from('documents')
-    .select('*')
-    .eq('id', documentId)
-    .single();
-
-  if (docError || !document) {
-    return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
+  let history;
+  try {
+    history = await loadDocumentAuditHistory(admin, documentId);
+  } catch {
+    return NextResponse.json({ error: 'Unable to load the complete audit history.' }, { status: 500 });
   }
 
-  const ownerId = document.owner_id ?? document.user_id;
-  const uploaderId = document.uploaded_by ?? null;
-  let allowed = ownerId === user.id || uploaderId === user.id;
+  await logDocumentAuditEvent({
+    documentId,
+    actorUserId: user.id,
+    eventType: 'document_viewed',
+    details: { context: 'audit_trail_view' },
+  });
 
-  if (!allowed) {
-    const { data: permission } = await supabase
-      .from('document_permissions')
-      .select('id')
-      .eq('document_id', documentId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    allowed = Boolean(permission);
-  }
-
-  if (!allowed) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-  }
-
-  const [signingAuditResult, auditResult] = await Promise.all([
-    supabase
-      .from('signing_audit_events')
-      .select('id,event_type,created_at,actor_user_id,details')
-      .eq('document_id', documentId)
-      .order('created_at', { ascending: false })
-      .limit(50),
-    supabase
-      .from('audit_logs')
-      .select('id,event_type,created_at,actor_user_id,details')
-      .eq('document_id', documentId)
-      .order('created_at', { ascending: false })
-      .limit(50),
-  ]);
-
-  const auditTrail = [
-    ...(signingAuditResult.data || []),
-    ...(auditResult.data || []),
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-  return NextResponse.json({ auditTrail });
+  return NextResponse.json({
+    auditTrail: await enrichAuditEntries(admin, [...history.events].reverse()),
+    hashChain: Array.isArray(document.metadata?.hash_chain) ? document.metadata.hash_chain : [],
+    chainIntegrity: {
+      signingAuditValid: history.signingChain.valid,
+      auditLogsValid: history.documentChain.valid,
+    },
+  }, { headers: { 'Cache-Control': 'private, no-store' } });
 }

@@ -32,12 +32,14 @@ function SortableParticipantCard({
   onUpdate,
   onRemove,
   locked,
+  flaggedMessage,
 }: {
   row: Participant;
   index: number;
   onUpdate: (id: string, field: keyof Participant, value: string) => void;
   onRemove: (id: string) => void;
   locked: boolean;
+  flaggedMessage?: string;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: row.id,
@@ -101,7 +103,11 @@ function SortableParticipantCard({
           onChange={(event) => onUpdate(row.id, 'email', event.target.value)}
           placeholder="email@example.com"
           disabled={locked}
+          aria-invalid={Boolean(flaggedMessage)}
         />
+        {flaggedMessage && (
+          <span role="alert" style={{ color: '#991b1b', fontSize: '0.85rem', fontWeight: 600 }}>{flaggedMessage}</span>
+        )}
       </label>
 
       <label className={prep.fieldLabel}>
@@ -151,24 +157,24 @@ export default function PrepareDocumentClient({
     title: string;
     bucket: string;
     filePath: string;
-    signedBucket: string;
-    signedPath: string;
   };
   me: {
     userId: string;
     name: string;
     email: string;
+    role: string;
   };
   initialSigningRequests: SigningRequest[];
 }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [originalUrl, setOriginalUrl] = useState('');
-  const [signedUrl, setSignedUrl] = useState('');
   const [participants, setParticipants] = useState<Participant[]>(() => toParticipantRows(initialSigningRequests));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
+  const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  const [staffEmails, setStaffEmails] = useState<string[]>([]);
   const [workflowSent, setWorkflowSent] = useState(initialSigningRequests.length > 0);
   const workflowLocked = workflowSent;
 
@@ -190,7 +196,6 @@ export default function PrepareDocumentClient({
 
     async function loadPreviewUrls() {
       let hasAuthorizedPreview = false;
-      let hasAuthorizedSignedPreview = false;
       try {
         const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download`);
         const payload = await response.json();
@@ -200,17 +205,6 @@ export default function PrepareDocumentClient({
         }
       } catch {
         // Fall back to direct Storage URL resolution below.
-      }
-
-      try {
-        const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download?version=signed`);
-        const payload = await response.json();
-        if (response.ok && payload.downloadUrl && mounted) {
-          hasAuthorizedSignedPreview = true;
-          setSignedUrl(payload.downloadUrl);
-        }
-      } catch {
-        // A signed PDF may not exist until a signer completes the workflow.
       }
 
       const candidateBuckets = Array.from(new Set([document.bucket, 'secure_docs', 'evidence', 'org-documents', 'documents'].filter(Boolean)));
@@ -237,43 +231,21 @@ export default function PrepareDocumentClient({
       if (mounted && !hasAuthorizedPreview) {
         setOriginalUrl(resolvedOriginal);
       }
-
-      let resolvedSigned = '';
-      const signedBuckets = Array.from(new Set([document.signedBucket, document.bucket, 'secure_docs', 'evidence', 'org-documents', 'documents'].filter(Boolean)));
-      const signedPaths = Array.from(new Set([
-        document.signedPath,
-        document.signedPath?.replace(/^\//, ''),
-        document.signedPath ? document.signedPath.split('/').slice(1).join('/') : '',
-      ].filter(Boolean)));
-
-      for (const bucket of signedBuckets) {
-        for (const filePath of signedPaths) {
-          const signedUrl = await createPreviewUrl(bucket, filePath);
-          if (signedUrl) {
-            resolvedSigned = signedUrl;
-            break;
-          }
-        }
-        if (resolvedSigned) {
-          break;
-        }
-      }
-
-      if (mounted && !hasAuthorizedSignedPreview) {
-        setSignedUrl(resolvedSigned);
-      }
     }
 
+    // Load once. Re-resolving signed URLs on a timer swapped the iframe `src`
+    // every few seconds, which made the original document flash and reload.
     loadPreviewUrls();
-    const refreshTimer = window.setInterval(loadPreviewUrls, 10000);
 
     return () => {
       mounted = false;
-      window.clearInterval(refreshTimer);
     };
-  }, [document.id, document.bucket, document.filePath, document.signedBucket, document.signedPath, supabase]);
+  }, [document.id, document.bucket, document.filePath, supabase]);
 
   function updateParticipant(id: string, field: keyof Participant, value: string) {
+    if (field === 'email') {
+      setStaffEmails([]);
+    }
     setParticipants((current) => current.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   }
 
@@ -323,7 +295,19 @@ export default function PrepareDocumentClient({
     });
   }
 
+  const readyParticipants = participants.filter((row) => row.name.trim() && row.email.trim());
+
+  // Sending locks the workflow, so confirm the names/emails first.
+  function requestSend() {
+    if (readyParticipants.length === 0) {
+      void saveWorkflow();
+      return;
+    }
+    setConfirmSendOpen(true);
+  }
+
   async function saveWorkflow() {
+    setConfirmSendOpen(false);
     setSaving(true);
     setError(false);
     setMessage('');
@@ -347,6 +331,34 @@ export default function PrepareDocumentClient({
       setSaving(false);
       setError(true);
       setMessage('Add at least one participant with name and email.');
+      return;
+    }
+
+    // Check every participant before any link is created or emailed, so a
+    // Staff email blocks the whole workflow instead of sending part of it.
+    try {
+      const checkResponse = await fetch('/api/signing-requests/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: cleaned.map((row) => row.email) }),
+      });
+      const checkPayload = await checkResponse.json();
+      if (!checkResponse.ok) {
+        throw new Error(checkPayload.error || 'Unable to validate participants.');
+      }
+      if (checkPayload.staffEmails?.length) {
+        setStaffEmails(checkPayload.staffEmails);
+        setSaving(false);
+        setError(true);
+        setMessage(
+          `Staff members are not allowed to sign documents. Please change these emails and try again: ${checkPayload.staffEmails.join(', ')}. No signing links were sent.`
+        );
+        return;
+      }
+    } catch (failure) {
+      setSaving(false);
+      setError(true);
+      setMessage(failure instanceof Error ? failure.message : 'Unable to validate participants.');
       return;
     }
 
@@ -434,15 +446,6 @@ export default function PrepareDocumentClient({
         )}
       </article>
 
-      <article className={prep.previewPane}>
-        <p className={prep.previewLabel}>Signed</p>
-        {signedUrl ? (
-          <iframe title={`${document.title} signed`} src={signedUrl} className={prep.previewFrame} />
-        ) : (
-          <div className={prep.previewFallback}>No signed version yet.</div>
-        )}
-      </article>
-
       <aside className={prep.sidebarPane}>
         <h3 className={prep.sidebarTitle}>Participants</h3>
         <p className={prep.sidebarSubtitle}>Set signing order workflow</p>
@@ -458,6 +461,11 @@ export default function PrepareDocumentClient({
                   onUpdate={updateParticipant}
                   onRemove={removeParticipant}
                   locked={workflowLocked}
+                  flaggedMessage={
+                    staffEmails.includes(row.email.trim().toLowerCase())
+                      ? 'This email belongs to a Staff member. Staff are not allowed to sign - please change it.'
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -466,12 +474,37 @@ export default function PrepareDocumentClient({
 
         <div className={prep.buttonRow}>
           <button type="button" className={shared.linkButton} onClick={addParticipant} disabled={workflowLocked}>Add participant</button>
-          <button type="button" className={shared.linkButton} onClick={includeMe} disabled={workflowLocked}>Include me</button>
+          {me.role !== 'staff' && (
+            <button type="button" className={shared.linkButton} onClick={includeMe} disabled={workflowLocked}>Include me</button>
+          )}
         </div>
 
-        <button type="button" className={shared.button} onClick={saveWorkflow} disabled={saving || workflowLocked}>
+        <button type="button" className={shared.button} onClick={requestSend} disabled={saving || workflowLocked}>
           {saving ? 'Saving...' : workflowLocked ? 'Workflow locked' : 'Send signing links'}
         </button>
+
+        {confirmSendOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-send-title"
+            style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}
+          >
+            <div className={shared.sectionCard} style={{ maxWidth: 480, width: '100%', margin: 0, background: '#fff' }}>
+              <h3 id="confirm-send-title" style={{ marginTop: 0 }}>Are you sure the details are correct?</h3>
+              <p className={shared.cardText}>Signing links will be sent in this order and the workflow will be locked:</p>
+              <ol style={{ paddingLeft: '1.2rem', lineHeight: 1.6 }}>
+                {readyParticipants.map((row) => (
+                  <li key={row.id}>{row.name.trim()} &ndash; {row.email.trim().toLowerCase()}</li>
+                ))}
+              </ol>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
+                <button type="button" className={shared.linkButton} onClick={() => setConfirmSendOpen(false)}>No</button>
+                <button type="button" className={shared.button} onClick={() => { void saveWorkflow(); }}>Yes</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {message && <p className={error ? prep.errorText : prep.successText}>{message}</p>}
       </aside>

@@ -1,10 +1,10 @@
 import UploadDocument from './UploadDocument';
-import { requireAuthProfile } from '../../lib/authGuard';
+import { requireDocumentAccess } from '../../lib/authGuard';
 import WorkspaceShell from '../components/WorkspaceShell';
 import { ROLE_LABELS } from '../../lib/roles';
 
 export default async function UploadPage() {
-  const { profile } = await requireAuthProfile('/signin');
+  const { profile } = await requireDocumentAccess();
   return (
     <WorkspaceShell
       profile={profile}

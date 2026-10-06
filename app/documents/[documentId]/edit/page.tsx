@@ -1,6 +1,8 @@
+import { enrichAuditEntries } from '../../../../lib/auditPresentation';
+import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { notFound, redirect } from 'next/navigation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
-import { requireAuthProfile } from '../../../../lib/authGuard';
+import { requireDocumentAccess } from '../../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import DocumentEditClient from './DocumentEditClient';
 
@@ -25,7 +27,7 @@ function normalizeStatus(value: unknown) {
 }
 
 export default async function DocumentEditPage({ params }: { params: { documentId: string } }) {
-  const { user, profile } = await requireAuthProfile('/signin');
+  const { user, profile } = await requireDocumentAccess();
   const supabase = createSupabaseServerClient();
   const documentId = params.documentId;
 
@@ -82,10 +84,10 @@ export default async function DocumentEditPage({ params }: { params: { documentI
       .limit(30),
   ]);
 
-  const auditTrail: AuditEntry[] = [
+  const auditTrail = await enrichAuditEntries(getSupabaseAdmin(), [
     ...((signingAuditResult.data || []) as AuditEntry[]),
     ...((auditResult.data || []) as AuditEntry[]),
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
 
   const filePath = String(document.file_path || document.storage_path || document.path || '');
   const bucket = String(document.bucket || 'secure_docs');

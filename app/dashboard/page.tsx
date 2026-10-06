@@ -1,9 +1,11 @@
 import WorkspaceShell from '../components/WorkspaceShell';
-import { requireAuthProfile } from '../../lib/authGuard';
+import { requireDocumentAccess } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
 import DashboardClient from './DashboardClient';
 import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
+import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
+import { loadMySigningTurns } from '../../lib/signingTurn';
 
 type DocStatus = 'Drafting' | 'Pending' | 'Signed' | 'Filed';
 
@@ -94,7 +96,7 @@ async function ensureStorageBackfillForUser(supabase: ReturnType<typeof createSu
   }
 }
 
-async function loadDashboardData(userId: string) {
+async function loadDashboardData(userId: string, orgId: string | null, email: string | null) {
   const supabase = createSupabaseServerClient();
   const supabaseAdmin = getSupabaseAdmin();
   await ensureStorageBackfillForUser(supabase, userId);
@@ -116,7 +118,10 @@ async function loadDashboardData(userId: string) {
     ));
   }
 
-  const rows = [...(docsResult.data ?? [])] as Array<Record<string, unknown>>;
+  const sharedDocuments = await loadDocumentsSharedWithUser(supabaseAdmin, userId, orgId);
+  const rows = [...(docsResult.data ?? []), ...sharedDocuments].sort(
+    (a, b) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime()
+  ) as Array<Record<string, unknown>>;
   const seen = new Set<string>();
   const dedupedRows = rows.filter((row) => {
     const key = String(
@@ -136,6 +141,8 @@ async function loadDashboardData(userId: string) {
     Filed: 0,
   };
 
+  const turns = await loadMySigningTurns(supabaseAdmin, email, dedupedRows.map((row) => String(row.id ?? '')));
+
   const recentDocuments: DashboardDocument[] = dedupedRows.slice(0, 20).map((record) => {
     const status = normalizeStatus(record.status);
     metrics[status] += 1;
@@ -145,6 +152,7 @@ async function loadDashboardData(userId: string) {
       status,
       sha256Hash: typeof record.sha256_hash === 'string' ? record.sha256_hash : null,
       createdAt: typeof record.created_at === 'string' ? record.created_at : null,
+      myAction: turns.get(String(record.id ?? ''))?.state ?? null,
     };
   });
 
@@ -156,8 +164,8 @@ async function loadDashboardData(userId: string) {
 }
 
 export default async function DashboardPage() {
-  const { user, profile } = await requireAuthProfile();
-  const { metrics, recentDocuments } = await loadDashboardData(user.id);
+  const { user, profile } = await requireDocumentAccess();
+  const { metrics, recentDocuments } = await loadDashboardData(user.id, profile.org_id ?? null, user.email ?? null);
 
   return (
     <WorkspaceShell
@@ -165,7 +173,11 @@ export default async function DashboardPage() {
       title="LAWDGA Dashboard"
       subtitle={`Welcome back, ${getFirstName(profile.full_name, user.email)}.`}
     >
-      <DashboardClient initialDocuments={recentDocuments} initialMetrics={metrics} />
+      <DashboardClient
+        initialDocuments={recentDocuments}
+        initialMetrics={metrics}
+        userName={getFirstName(profile.full_name, user.email)}
+      />
     </WorkspaceShell>
   );
 }

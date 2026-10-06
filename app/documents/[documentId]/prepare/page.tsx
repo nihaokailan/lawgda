@@ -1,11 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
-import { requireAuthProfile } from '../../../../lib/authGuard';
+import { requireDocumentAccess } from '../../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import PrepareDocumentClient from './PrepareDocumentClient';
-import Link from 'next/link';
-import shared from '../../../../styles/shared.module.css';
 
 type SigningRequest = {
   id: string;
@@ -22,22 +20,8 @@ function buildTitle(record: Record<string, unknown>) {
   return String(record.title || record.name || record.filename || 'Untitled Document');
 }
 
-function parseSignedPreview(metadata: unknown) {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return { signedPath: '', signedBucket: '' };
-  }
-
-  const source = metadata as Record<string, unknown>;
-  const signedPath = String(
-    source.signed_file_path || source.signed_storage_path || source.signed_path || source.final_file_path || ''
-  );
-  const signedBucket = String(source.signed_bucket || source.final_bucket || '');
-
-  return { signedPath, signedBucket };
-}
-
 export default async function DocumentPreparePage({ params }: { params: { documentId: string } }) {
-  const { user, profile } = await requireAuthProfile('/signin');
+  const { user, profile } = await requireDocumentAccess();
   const supabase = createSupabaseServerClient();
   const documentId = params.documentId;
 
@@ -87,13 +71,11 @@ export default async function DocumentPreparePage({ params }: { params: { docume
     .order('signing_order', { ascending: true })
     .order('created_at', { ascending: true });
 
-  const signedPreview = parseSignedPreview(document.metadata);
-
   return (
     <WorkspaceShell
       profile={profile}
       title="Sign Document"
-      subtitle="Compare the original and signed document while setting the signing workflow."
+      subtitle="Review the document and set the signing workflow."
     >
       <PrepareDocumentClient
         document={{
@@ -101,21 +83,15 @@ export default async function DocumentPreparePage({ params }: { params: { docume
           title: buildTitle(document),
           bucket: String(document.bucket || 'secure_docs'),
           filePath: String(document.file_path || document.storage_path || document.path || ''),
-          signedBucket: signedPreview.signedBucket,
-          signedPath: signedPreview.signedPath,
         }}
         me={{
           userId: user.id,
           name: profile.full_name || user.email || 'Me',
           email: user.email || '',
+          role: profile.role,
         }}
         initialSigningRequests={signingRequestsResult.data as SigningRequest[] || []}
       />
-      <div style={{ marginTop: '1rem' }}>
-        <Link href={`/documents/${documentId}/signed`} className={shared.linkButton}>
-          Open Signed Document Page
-        </Link>
-      </div>
     </WorkspaceShell>
   );
 }

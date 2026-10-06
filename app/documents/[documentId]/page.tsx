@@ -1,11 +1,14 @@
 import { notFound, redirect } from 'next/navigation';
 import WorkspaceShell from '../../components/WorkspaceShell';
-import { requireAuthProfile } from '../../../lib/authGuard';
+import SignNowButton from '../../components/SignNowButton';
+import { loadMySigningTurns } from '../../../lib/signingTurn';
+import { requireDocumentAccess } from '../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import DocumentViewClient from './DocumentViewClient';
 import Link from 'next/link';
 import shared from '../../../styles/shared.module.css';
+import { logDocumentAuditEvent } from '../../../lib/auditLog';
 
 function normalizeStatus(value: unknown) {
   const status = String(value || '').toLowerCase();
@@ -17,7 +20,7 @@ function normalizeStatus(value: unknown) {
 }
 
 export default async function DocumentViewPage({ params }: { params: { documentId: string } }) {
-  const { user, profile } = await requireAuthProfile('/signin');
+  const { user, profile } = await requireDocumentAccess();
   const supabase = createSupabaseServerClient();
   const documentId = params.documentId;
 
@@ -58,6 +61,15 @@ export default async function DocumentViewPage({ params }: { params: { documentI
     redirect('/dashboard');
   }
 
+  const mySigningTurn = (await loadMySigningTurns(getSupabaseAdmin(), user.email, [documentId])).get(documentId) ?? null;
+
+  await logDocumentAuditEvent({
+    documentId,
+    actorUserId: user.id,
+    eventType: 'document_viewed',
+    details: { context: 'document_details_page' },
+  });
+
   return (
     <WorkspaceShell
       profile={profile}
@@ -69,18 +81,36 @@ export default async function DocumentViewPage({ params }: { params: { documentI
           ← Back to Dashboard
         </Link>
         <Link
-          href={`/documents/${documentId}/${String(document.status || '').toLowerCase() === 'signed' ? 'signed' : 'prepare'}`}
+          href={`/documents/${documentId}/${['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'signed' : 'prepare'}`}
           className={shared.linkButton}
           style={{ marginLeft: '0.5rem', background: 'var(--crimson)', color: '#fff' }}
         >
-          {String(document.status || '').toLowerCase() === 'signed' ? 'Signed Document →' : 'Sign Document →'}
+          {['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'Signed Document →' : 'Sign Document →'}
         </Link>
       </div>
       
+      {mySigningTurn && (
+        <div className={shared.sectionCard} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
+          {mySigningTurn.state === 'sign' ? (
+            <>
+              <h3 style={{ marginTop: 0 }}>Your signature is requested</h3>
+              <p className={shared.cardText}>It is your turn to sign this document. You can sign here, or from the emailed link — only one of them will work.</p>
+              <SignNowButton documentId={documentId} label="Sign this document" className={shared.button} />
+            </>
+          ) : (
+            <>
+              <h3 style={{ marginTop: 0 }}>Waiting for other signers</h3>
+              <p className={shared.cardText}>You are assigned to sign this document. It will be ready for you once the signers before you have signed.</p>
+            </>
+          )}
+        </div>
+      )}
+
       <DocumentViewClient
         document={{
           ...document,
           status: normalizeStatus(document.status),
+          rawStatus: String(document.status || 'Drafting'),
         }}
       />
     </WorkspaceShell>

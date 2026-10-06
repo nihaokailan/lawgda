@@ -2,6 +2,7 @@ import { requireRole } from '../../../lib/authGuard';
 import { ROLES } from '../../../lib/roles';
 import WorkspaceShell from '../../components/WorkspaceShell';
 import AdminUsersClient from './AdminUsersClient';
+import { loadOrgName } from '../../../lib/orgRepository';
 
 export default async function AdminUsersPage() {
   const { user, profile } = await requireRole([ROLES.ADMIN]);
@@ -18,13 +19,15 @@ export default async function AdminUsersPage() {
     );
   }
 
+  const orgName = await loadOrgName(profile.org_id);
+
   return (
     <WorkspaceShell
       profile={profile}
       title="Organization User Provisioning"
-      subtitle="Create and manage lawyer/staff accounts under your organization ID."
+      subtitle={`${orgName} \u2014 assign roles to registered accounts and manage your law firm's Lawyers and Staff.`}
     >
-      <AdminUsersClient currentUserId={user.id} orgId={profile.org_id} />
+      <AdminUsersClient currentUserId={user.id} />
     </WorkspaceShell>
   );
 }

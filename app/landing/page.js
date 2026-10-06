@@ -136,6 +136,22 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {!loading && !user && (
+        <section className={styles.joinSection}>
+          <div className={`container ${styles.container}`}>
+            <p className={styles.joinTag}>Join Us</p>
+            <h2>Ready to sign with confidence?</h2>
+            <p className={styles.joinDescription}>
+              Create a free Lawgda account to start organizing, signing, and verifying your legal documents securely.
+            </p>
+            <div className={styles.btnRow}>
+              <Link href="/signup" className={`${styles.btn} ${styles.primary}`}>Sign Up →</Link>
+              <Link href="/signin" className={styles.btn}>Sign In →</Link>
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

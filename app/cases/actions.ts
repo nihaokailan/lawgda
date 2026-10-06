@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
+import { ROLES } from '../../lib/rbac';
+import { requireWorkspaceMember } from '../../lib/rbacMiddleware';
+import { loadAccessibleDocument } from '../../lib/documentAccess';
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -10,57 +13,41 @@ function isUuid(value: string) {
 
 async function ensureDocumentOwner(documentId: string) {
   const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const { user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]);
 
-  if (userError || !user) {
-    throw new Error('Unauthorized');
-  }
-
-  const { data: doc, error: docError } = await supabase
-    .from('documents')
-    .select('id,owner_id,user_id,case_id')
-    .eq('id', documentId)
-    .single();
-
-  if (docError || !doc) {
-    throw new Error('Document not found.');
-  }
-
+  const doc = await loadAccessibleDocument({ user, profile, documentId });
   const ownerId = doc.owner_id ?? doc.user_id;
   if (!ownerId || ownerId !== user.id) {
     throw new Error('Only document owners can manage signers.');
   }
 
-  return { supabase, actorUser: user, document: doc };
+  return { supabase, actorUser: user, actorProfile: profile, document: doc };
 }
 
-async function resolveTargetUserId(_supabase: ReturnType<typeof createSupabaseServerClient>, input: string) {
+// Grants may only target active Lawyers/Staff of the actor's own organization,
+// so permissions can never leak a document across firms or to an Admin.
+async function resolveTargetUserId(actorOrgId: string, input: string) {
   const value = input.trim();
   if (!value) {
     throw new Error('Target user is required.');
   }
 
-  if (isUuid(value)) {
-    return value;
-  }
-
-  const normalizedEmail = value.toLowerCase();
   const supabaseAdmin = getSupabaseAdmin();
-  const { data: profile, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('profiles')
-    .select('user_id,email')
-    .ilike('email', normalizedEmail)
-    .limit(1)
-    .single();
+    .select('user_id')
+    .eq('org_id', actorOrgId)
+    .in('role', [ROLES.LAWYER, ROLES.STAFF])
+    .eq('is_active', true);
 
-  if (error || !profile?.user_id) {
-    throw new Error('User not found for that email/ID.');
+  query = isUuid(value) ? query.eq('user_id', value) : query.ilike('email', value.toLowerCase());
+  const { data: profile } = await query.limit(1).maybeSingle();
+
+  if (!profile?.user_id) {
+    throw new Error('User not found in your organization.');
   }
 
-  return profile.user_id;
+  return profile.user_id as string;
 }
 
 async function writeAuditLog(
@@ -81,8 +68,8 @@ async function writeAuditLog(
 }
 
 export async function addSigner(documentId: string, targetUserId: string) {
-  const { supabase, actorUser, document } = await ensureDocumentOwner(documentId);
-  const resolvedTargetUserId = await resolveTargetUserId(supabase, targetUserId);
+  const { supabase, actorUser, actorProfile, document } = await ensureDocumentOwner(documentId);
+  const resolvedTargetUserId = await resolveTargetUserId(actorProfile.org_id, targetUserId);
 
   const { error } = await supabase
     .from('document_permissions')
@@ -115,8 +102,8 @@ export async function addSigner(documentId: string, targetUserId: string) {
 }
 
 export async function removeSigner(documentId: string, targetUserId: string) {
-  const { supabase, actorUser, document } = await ensureDocumentOwner(documentId);
-  const resolvedTargetUserId = await resolveTargetUserId(supabase, targetUserId);
+  const { supabase, actorUser, actorProfile, document } = await ensureDocumentOwner(documentId);
+  const resolvedTargetUserId = await resolveTargetUserId(actorProfile.org_id, targetUserId);
 
   const { error } = await supabase
     .from('document_permissions')

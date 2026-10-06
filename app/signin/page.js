@@ -6,6 +6,18 @@ import shared from '../../styles/shared.module.css';
 import shell from '../../styles/pageShell.module.css';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
+// A recovery code (and its PKCE verifier) can be exchanged only once. React
+// Strict Mode runs effects twice in development, so share a single exchange
+// per code instead of letting the second run fail with a missing verifier.
+const codeExchanges = new Map();
+
+function exchangeCodeOnce(supabase, code) {
+  if (!codeExchanges.has(code)) {
+    codeExchanges.set(code, supabase.auth.exchangeCodeForSession(code));
+  }
+  return codeExchanges.get(code);
+}
+
 export default function SignInPage() {
   return (
     <Suspense fallback={null}>
@@ -51,7 +63,7 @@ function SignInPageContent() {
 
       let recoveryError = null;
       if (code) {
-        ({ error: recoveryError } = await supabase.auth.exchangeCodeForSession(code));
+        ({ error: recoveryError } = await exchangeCodeOnce(supabase, code));
       } else if (accessToken && refreshToken) {
         ({ error: recoveryError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }));
       }

@@ -57,6 +57,7 @@
   display: grid;
   gap: 0.08rem;
   overflow-y: auto;
+  align-content: start;
 }
 
 .navLink {

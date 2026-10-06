@@ -1,8 +1,9 @@
 .docsShell {
-  background: transparent;
+  background: #ffffff;
   border: none;
-  border-radius: 0;
-  padding: 0;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   display: grid;
   gap: 0.7rem;
 }
@@ -169,6 +170,26 @@
   padding: 0.22rem 0.52rem;
   font-weight: 600;
   font-size: 0.75rem;
+}
+
+.statusPillCompleted {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.statusPillPending {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.statusPillDrafts {
+  background: #eceff3;
+  color: #374151;
+}
+
+.statusPillDenied {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .openLink {

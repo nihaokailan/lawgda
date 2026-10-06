@@ -1,29 +1,19 @@
 import { NextResponse } from 'next/server';
-import { ROLES } from '../../../../../lib/roles';
+import { ROLES } from '../../../../../lib/rbac';
+import { requireWorkspaceMember, rbacErrorResponse } from '../../../../../lib/rbacMiddleware';
+import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
 import { logSigningAuditEvent } from '../../../../../lib/signingAudit';
-import { createSupabaseServerClient } from '../../../../../lib/supabase/server';
 
 export async function POST(_request, { params }) {
   const requestId = params?.requestId;
-  const supabase = createSupabaseServerClient();
+  const supabase = getSupabaseAdmin();
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!profile || ![ROLES.ADMINISTRATOR, ROLES.LAWYER].includes(profile.role)) {
-    return NextResponse.json({ error: 'Only Admin or Lawyer can revoke signing requests.' }, { status: 403 });
+  let user;
+  let profile;
+  try {
+    ({ user, profile } = await requireWorkspaceMember([ROLES.ADMIN, ROLES.LAWYER]));
+  } catch (error) {
+    return rbacErrorResponse(error);
   }
 
   const { data: signingRequest, error: requestError } = await supabase
@@ -36,7 +26,20 @@ export async function POST(_request, { params }) {
     return NextResponse.json({ error: 'Signing request not found.' }, { status: 404 });
   }
 
-  if (profile.role !== ROLES.ADMINISTRATOR && signingRequest.requested_by !== user.id) {
+  // Organization isolation: the request's document must belong to the caller's firm.
+  const { data: requestDocument } = await supabase
+    .from('documents')
+    .select('org_id')
+    .eq('id', signingRequest.document_id)
+    .maybeSingle();
+  const crossOrg = profile.role === ROLES.ADMIN
+    ? requestDocument?.org_id !== profile.org_id
+    : Boolean(requestDocument?.org_id) && requestDocument.org_id !== profile.org_id;
+  if (crossOrg) {
+    return NextResponse.json({ error: 'Signing request not found.' }, { status: 404 });
+  }
+
+  if (profile.role !== ROLES.ADMIN && signingRequest.requested_by !== user.id) {
     return NextResponse.json({ error: 'Only the request owner or admin can revoke this request.' }, { status: 403 });
   }
 

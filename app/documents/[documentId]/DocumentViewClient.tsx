@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import shared from '../../../styles/shared.module.css';
 import styles from '../../../styles/dashboard.module.css';
 import DocumentVerifier from '../../components/DocumentVerifier';
+import DocumentLifecycleTimeline from '../../components/DocumentLifecycleTimeline';
 
 type DocumentViewProps = {
   document: {
     id: string;
     title: string;
     status: string;
+    rawStatus: string;
     sha256_hash: string | null;
     metadata: Record<string, unknown> | null;
     created_at: string | null;
@@ -41,7 +43,7 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
           throw new Error(payload.error || 'Unable to load PDF preview.');
         }
         if (mounted) {
-          setPreviewUrl(payload.downloadUrl || '');
+          setPreviewUrl(`/api/documents/${document.id}/download${downloadVersion ? `${downloadVersion}&inline=1` : '?inline=1'}`);
         }
       } catch (error) {
         if (mounted) {
@@ -75,13 +77,18 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
 
       const { downloadUrl, fileName } = await response.json();
 
-      // Create a temporary link and trigger download
+      const fileResponse = await fetch(downloadUrl, { cache: 'no-store' });
+      if (!fileResponse.ok) throw new Error('Unable to download the document. Please try again.');
+      const localUrl = URL.createObjectURL(await fileResponse.blob());
+
+      // Download the bytes now instead of retaining a temporary storage link.
       const link = window.document.createElement('a');
-      link.href = downloadUrl;
+      link.href = localUrl;
       link.download = fileName;
       window.document.body.appendChild(link);
       link.click();
       window.document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(localUrl), 60000);
 
       setDownloadedAt(new Date().toLocaleString());
     } catch (err) {
@@ -117,6 +124,9 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
           </div>
         </div>
       </div>
+
+      {/* Document Lifecycle History */}
+      <DocumentLifecycleTimeline documentId={document.id} currentStatus={document.rawStatus} />
 
       {/* SHA-256 Hash Display */}
       {expectedHash && (

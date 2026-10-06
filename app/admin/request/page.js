@@ -1,9 +1,10 @@
 import WorkspaceShell from '../../components/WorkspaceShell';
 import AdminRequestClient from './AdminRequestClient';
-import { requireAuthProfile } from '../../../lib/authGuard';
+import { requireRole } from '../../../lib/authGuard';
+import { ROLES } from '../../../lib/roles';
 
 export default async function AdminRequestPage() {
-  const { profile } = await requireAuthProfile();
+  const { profile } = await requireRole([ROLES.NORMAL]);
 
   return (
     <WorkspaceShell

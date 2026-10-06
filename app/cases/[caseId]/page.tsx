@@ -1,5 +1,5 @@
 import WorkspaceShell from '../../components/WorkspaceShell';
-import { requireAuthProfile } from '../../../lib/authGuard';
+import { requireDocumentAccess } from '../../../lib/authGuard';
 import { ROLE_LABELS } from '../../../lib/roles';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import CaseDetailClient from './CaseDetailClient';
@@ -52,7 +52,7 @@ async function insertViewLogs(
 }
 
 export default async function CaseDetailPage({ params }: { params: { caseId: string } }) {
-  const { user, profile } = await requireAuthProfile('/signin');
+  const { user, profile } = await requireDocumentAccess();
   const supabase = createSupabaseServerClient();
   const caseId = params.caseId;
 

@@ -1,28 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { listUserStorageFiles } from '../../../lib/listUserStorageFiles';
+import { ROLES } from '../../../lib/rbac';
+import { requireWorkspaceMember } from '../../../lib/rbacMiddleware';
 
-async function getCurrentUserProfile(supabase) {
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return { error: 'Unauthorized', status: 401 };
+// Admins never read document data; Default Admin is not a firm member.
+async function getCurrentUserProfile(roles) {
+  try {
+    const { user, profile } = await requireWorkspaceMember(roles);
+    return { user, profile };
+  } catch (error) {
+    return { error: error.message, status: error.status ?? 500 };
   }
-
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('user_id,role,org_id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (profileError || !profile) {
-    return { error: 'Profile not found.', status: 403 };
-  }
-
-  return { user, profile };
 }
 
 async function ensureStorageBackfillForUser(supabase, userId) {
@@ -83,7 +72,7 @@ async function ensureStorageBackfillForUser(supabase, userId) {
 
 export async function GET(request) {
   const supabase = createSupabaseServerClient();
-  const actor = await getCurrentUserProfile(supabase);
+  const actor = await getCurrentUserProfile([ROLES.LAWYER, ROLES.STAFF, ROLES.NORMAL]);
   if (actor.error) {
     return NextResponse.json({ error: actor.error }, { status: actor.status });
   }
@@ -148,7 +137,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const supabase = createSupabaseServerClient();
-  const actor = await getCurrentUserProfile(supabase);
+  const actor = await getCurrentUserProfile([ROLES.LAWYER, ROLES.STAFF]);
   if (actor.error) {
     return NextResponse.json({ error: actor.error }, { status: actor.status });
   }

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
-import { createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { ROLES } from '../../../../lib/rbac';
+import { requireWorkspaceMember, rbacErrorResponse } from '../../../../lib/rbacMiddleware';
 import { sha256Hex } from '../../../../lib/documentHash';
+import { logDocumentAuditEvent } from '../../../../lib/auditLog';
 
 async function uploadWithFallbackBuckets(supabaseAdmin, filePath, file) {
   const buckets = ['secure_docs', 'evidence', 'org-documents'];
@@ -57,6 +59,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       user_id: payload.userId,
       owner_id: payload.userId,
       uploaded_by: payload.userId,
+      org_id: payload.orgId,
       bucket: payload.bucket,
       path: payload.filePath,
       file_path: payload.filePath,
@@ -69,6 +72,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       user_id: payload.userId,
       owner_id: payload.userId,
       uploaded_by: payload.userId,
+      org_id: payload.orgId,
       bucket: payload.bucket,
       path: payload.filePath,
       file_path: payload.filePath,
@@ -80,6 +84,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       user_id: payload.userId,
       owner_id: payload.userId,
       uploaded_by: payload.userId,
+      org_id: payload.orgId,
       path: payload.filePath,
       file_path: payload.filePath,
       title: payload.title,
@@ -103,16 +108,16 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
 
 export async function POST(request) {
   try {
-    const supabase = createSupabaseServerClient();
     const supabaseAdmin = getSupabaseAdmin();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Only firm Lawyers/Staff upload; neither admin tier may place documents
+    // (and thereby gain access to their content) in the repository.
+    let user;
+    let profile;
+    try {
+      ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
+    } catch (error) {
+      return rbacErrorResponse(error);
     }
 
     const formData = await request.formData();
@@ -145,13 +150,7 @@ export async function POST(request) {
       return NextResponse.json({ error: uploadResult.error || 'Upload failed.' }, { status: 400 });
     }
 
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    const orgId = profileError ? null : profileData?.org_id ?? null;
+    const orgId = profile.org_id;
 
     const insertResult = await insertDocumentRecord(supabaseAdmin, {
       caseId,
@@ -178,6 +177,15 @@ export async function POST(request) {
         },
         { onConflict: 'document_id,user_id' }
       );
+    }
+
+    if (documentId) {
+      await logDocumentAuditEvent({
+        documentId,
+        actorUserId: user.id,
+        eventType: 'document_uploaded',
+        details: { title, role: profile.role },
+      }).catch((failure) => console.error('[audit] Unable to record draft creation:', failure));
     }
 
     revalidatePath('/cases');

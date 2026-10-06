@@ -128,7 +128,11 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
     setTitle('');
     setFile(null);
 
-    if (redirectOnUpload) {
+    // Open the new document straight away so the next step (assigning signers) starts immediately.
+    if (uploadedId) {
+      onClose();
+      router.push(`/documents/${uploadedId}/prepare`);
+    } else if (redirectOnUpload) {
       onClose();
       router.refresh();
     }

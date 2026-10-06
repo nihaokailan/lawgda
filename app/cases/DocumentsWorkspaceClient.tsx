@@ -1,9 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import UploadModal from '../components/UploadModal';
+import Pagination from '../components/Pagination';
+import SignNowButton from '../components/SignNowButton';
 import styles from '../../styles/documents.module.css';
+
+const PAGE_SIZE = 8;
 
 type DocumentRow = {
   id: string;
@@ -13,12 +18,14 @@ type DocumentRow = {
   ownerLabel: string;
   ownerInitials: string;
   tags: string[];
+  myAction?: 'sign' | 'waiting' | null;
 };
 
 const FILTERS = [
   'All Documents',
   'Pending Signatures',
-  'Completed',
+  'Filed',
+  'Signed',
   'Pending',
   'Drafts',
   'Cancelled',
@@ -42,17 +49,30 @@ function matchesFilter(filter: string, row: DocumentRow) {
   return row.status === filter;
 }
 
+const STATUS_PILL_CLASS: Record<string, string> = {
+  Filed: 'statusPillCompleted',
+  Signed: 'statusPillCompleted',
+  Pending: 'statusPillPending',
+  Drafts: 'statusPillDrafts',
+  Cancelled: 'statusPillDenied',
+  Denied: 'statusPillDenied',
+  Declined: 'statusPillDenied',
+};
+
 export default function DocumentsWorkspaceClient({ documents }: { documents: DocumentRow[] }) {
+  const router = useRouter();
   const [visibleDocuments, setVisibleDocuments] = useState(documents);
   const [filter, setFilter] = useState('All Documents');
   const [query, setQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   const statusSummary = useMemo(() => {
     const counts: Record<string, number> = {
       'All Documents': visibleDocuments.length,
       'Pending Signatures': 0,
-      Completed: 0,
+      Filed: 0,
+      Signed: 0,
       Pending: 0,
       Drafts: 0,
       Cancelled: 0,
@@ -80,6 +100,14 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
       return row.title.toLowerCase().includes(q) || row.status.toLowerCase().includes(q) || row.ownerLabel.toLowerCase().includes(q);
     });
   }, [visibleDocuments, filter, query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedDocuments = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function handleUploaded(document: { id: string | null; title: string; status: string; createdAt: string | null }) {
     if (!document.id) return;
@@ -153,24 +181,36 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
                 <th>Status</th>
                 <th>Owner</th>
                 <th>Created</th>
-                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
-                <tr key={row.id}>
+              {pagedDocuments.map((row) => (
+                <tr
+                  key={row.id}
+                  tabIndex={0}
+                  role="link"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => router.push(`/documents/${row.id}/prepare`)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') router.push(`/documents/${row.id}/prepare`); }}
+                >
                   <td>{row.title}</td>
-                  <td><span className={styles.statusPill}>{row.status}</span></td>
+                  <td>
+                    {row.myAction === 'sign' ? (
+                      <SignNowButton documentId={row.id} label="Pending your signature — Sign now" className={`${styles.statusPill} ${styles.statusPillPending}`} style={{ cursor: 'pointer', border: 0 }} />
+                    ) : row.myAction === 'waiting' ? (
+                      <span className={`${styles.statusPill} ${styles.statusPillDrafts}`}>Waiting for other signers</span>
+                    ) : (
+                      <span className={`${styles.statusPill} ${styles[STATUS_PILL_CLASS[row.status] || 'statusPillDrafts']}`}>{row.status}</span>
+                    )}
+                  </td>
                   <td>{row.ownerLabel}</td>
                   <td>{formatDate(row.createdAt)}</td>
-                  <td>
-                    <Link href={`/documents/${row.id}/prepare`} className={styles.openLink}>Open</Link>
-                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+        <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
       </div>
 
       <UploadModal

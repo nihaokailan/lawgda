@@ -1,23 +1,26 @@
 import { NextResponse } from 'next/server';
 import { generateSigningToken, hashSigningToken } from '../../../lib/signingTokens';
 import { logSigningAuditEvent } from '../../../lib/signingAudit';
+import { transitionDocumentStatus } from '../../../lib/documentLifecycle';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
-import { createSupabaseServerClient } from '../../../lib/supabase/server';
+import { ROLES } from '../../../lib/rbac';
+import { loadAccessibleDocument } from '../../../lib/documentAccess';
+import { requireWorkspaceMember, rbacErrorResponse } from '../../../lib/rbacMiddleware';
+import { findStaffEmails, STAFF_SIGNER_MESSAGE } from '../../../lib/staffSigners';
 import { sendSigningInvitationEmail } from '../../../lib/email';
+import { grantLawyerSignerAccess } from '../../../lib/sharedDocuments';
 
 function addDays(days) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
 export async function GET(request) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const supabaseAdmin = getSupabaseAdmin();
+  let context;
+  try {
+    context = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF, ROLES.NORMAL]);
+  } catch (error) {
+    return rbacErrorResponse(error);
   }
 
   const url = new URL(request.url);
@@ -26,7 +29,13 @@ export async function GET(request) {
     return NextResponse.json({ error: 'documentId is required.' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  try {
+    await loadAccessibleDocument({ user: context.user, profile: context.profile, documentId });
+  } catch (error) {
+    return rbacErrorResponse(error);
+  }
+
+  const { data, error } = await supabaseAdmin
     .from('signing_requests')
     .select('id,document_id,signer_name,signer_email,signing_order,status,created_at,signed_at,viewed_at,revoked_at,internal_signer_id,pre_sign_hash,post_sign_hash,signed_file_path')
     .eq('document_id', documentId)
@@ -42,14 +51,12 @@ export async function GET(request) {
 
 export async function POST(request) {
   const supabaseAdmin = getSupabaseAdmin();
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let user;
+  let profile;
+  try {
+    ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
+  } catch (error) {
+    return rbacErrorResponse(error);
   }
 
   const body = await request.json();
@@ -74,12 +81,28 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Internal signer ID is required for internal signers.' }, { status: 400 });
   }
 
+  let document;
+  try {
+    document = await loadAccessibleDocument({ user, profile, documentId });
+  } catch (error) {
+    return rbacErrorResponse(error);
+  }
+
+  // A document permission lets a Lawyer sign, not issue signing requests.
+  if ((document.owner_id ?? document.user_id) !== user.id) {
+    return NextResponse.json({ error: 'Only the document owner can request signatures.' }, { status: 403 });
+  }
+
   if (signerType === 'internal') {
-    const { data: internalProfile, error: internalProfileError } = await supabase
+    // Internal signers must be firm members of the requester's own organization.
+    const { data: internalProfile, error: internalProfileError } = await supabaseAdmin
       .from('profiles')
       .select('full_name,email')
       .eq('user_id', internalSignerId)
-      .single();
+      .eq('org_id', profile.org_id)
+      .eq('role', ROLES.LAWYER)
+      .eq('is_active', true)
+      .maybeSingle();
 
     if (internalProfileError || !internalProfile?.email) {
       return NextResponse.json({ error: 'Internal signer profile not found.' }, { status: 400 });
@@ -89,14 +112,10 @@ export async function POST(request) {
     signerEmail = String(internalProfile.email).toLowerCase();
   }
 
-  const { data: document, error: documentError } = await supabaseAdmin
-    .from('documents')
-    .select('*')
-    .eq('id', documentId)
-    .maybeSingle();
-
-  if (documentError || !document) {
-    return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
+  // Backstop for the pre-flight check: never issue a link to a Staff account.
+  const [staffMatch] = await findStaffEmails(supabaseAdmin, [signerEmail]);
+  if (staffMatch) {
+    return NextResponse.json({ error: `${STAFF_SIGNER_MESSAGE} (${staffMatch})`, staffEmails: [staffMatch] }, { status: 422 });
   }
 
   const token = generateSigningToken();
@@ -124,6 +143,9 @@ export async function POST(request) {
   if (insertError || !inserted) {
     return NextResponse.json({ error: insertError?.message ?? 'Unable to create signing request.' }, { status: 400 });
   }
+
+  // A Lawyer assigned as signer sees the document in their own list and dashboard.
+  await grantLawyerSignerAccess(supabaseAdmin, { documentId, orgId: profile.org_id, signerEmail });
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'http://localhost:3000';
   const signingLink = `${baseUrl}/sign/${encodeURIComponent(token)}`;
@@ -198,6 +220,14 @@ export async function POST(request) {
     .from('documents')
     .update({ document_history: history })
     .eq('id', documentId);
+
+  await transitionDocumentStatus({
+    documentId,
+    toStatus: 'Pending',
+    actorUserId: user.id,
+    reason: 'signing_request_sent',
+    extraDetails: { signer_email: signerEmail },
+  });
 
   return NextResponse.json({
     success: true,
