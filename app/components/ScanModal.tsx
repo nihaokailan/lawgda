@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import styles from '../../styles/dashboard.module.css';
 
@@ -24,7 +25,21 @@ function extractUuid(input: string) {
   return match ? match[0] : null;
 }
 
+// Signed documents carry a QR code with a public verification link
+// (.../verify/av_<token>). Only the token is used, and navigation always stays
+// on this site, so a scanned code can never send the user to another origin.
+function extractAuditToken(input: string) {
+  const match = input.match(/\bav_[A-Za-z0-9_-]{20,}/);
+  return match ? match[0] : null;
+}
+
 export default function ScanModal({ open, onClose }: ScanModalProps) {
+  const router = useRouter();
+  // Kept in a ref so a new onClose function from the parent never restarts the camera.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [busy, setBusy] = useState(false);
   const [scanText, setScanText] = useState('');
@@ -77,9 +92,15 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
           async (decodedText: string) => {
             if (!mounted) return;
             setScanText(decodedText);
+            const auditToken = extractAuditToken(decodedText);
+            if (auditToken) {
+              onCloseRef.current();
+              router.push(`/verify/${encodeURIComponent(auditToken)}`);
+              return;
+            }
             const uuid = extractUuid(decodedText);
             if (!uuid) {
-              setMessage('QR decoded, but no document UUID found.');
+              setMessage('QR decoded, but it is not a Lawgda verification link or document ID.');
               return;
             }
             await loadAudit(uuid);
@@ -97,21 +118,36 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
 
     return () => {
       mounted = false;
-      if (scannerRef.current) {
-        scannerRef.current.stop().catch(() => {}).finally(() => {
-          scannerRef.current?.clear().catch(() => {});
-          scannerRef.current = null;
-        });
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      if (scanner) {
+        // stop()/clear() may throw or return nothing depending on scanner state.
+        Promise.resolve()
+          .then(() => scanner.stop())
+          .catch(() => {})
+          .finally(() => {
+            try {
+              Promise.resolve(scanner.clear()).catch(() => {});
+            } catch {
+              // Already cleared.
+            }
+          });
       }
     };
-  }, [loadAudit, open]);
+  }, [loadAudit, open, router]);
 
   if (!open) return null;
 
   async function onManualLookup() {
+    const auditToken = extractAuditToken(scanText);
+    if (auditToken) {
+      onClose();
+      router.push(`/verify/${encodeURIComponent(auditToken)}`);
+      return;
+    }
     const uuid = extractUuid(scanText);
     if (!uuid) {
-      setMessage('Enter a valid document UUID.');
+      setMessage('Enter a Lawgda verification link or a valid document ID.');
       return;
     }
     await loadAudit(uuid);
@@ -131,7 +167,7 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
           <div id={SCANNER_ID} className={styles.qrViewport} />
 
           <label className={styles.modalLabel}>
-            QR payload or UUID
+            QR payload, verification link or UUID
             <input
               className={styles.modalInput}
               value={scanText}
