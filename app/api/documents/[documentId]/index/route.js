@@ -1,73 +1,72 @@
 import { NextResponse } from 'next/server';
-import { PERMISSIONS } from '../../../../../lib/rbac';
-import { requirePermission, assertOwnOrganization, rbacErrorResponse } from '../../../../../lib/rbacMiddleware';
-import { performAuditedUpdate } from '../../../../../lib/granularAudit';
+import { revalidatePath } from 'next/cache';
+import { ROLES } from '../../../../../lib/rbac';
+import { requireWorkspaceMember, rbacErrorResponse } from '../../../../../lib/rbacMiddleware';
+import { loadAccessibleDocument } from '../../../../../lib/documentAccess';
 import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
-
-const EDITABLE_FIELDS = ['filename', 'folder_id'];
+import { INDEX_LIMITS, parseTags, validateIndexFields } from '../../../../../lib/documentIndexing';
 
 /**
- * Paralegal/Staff data-entry & document-indexing controller. Deliberately
- * limited to metadata fields (filename, folder placement) — never file
- * content — and every write goes through performAuditedUpdate(), which
- * forces a granular_audit_log entry per changed field. There is no path in
- * this route that can write to `documents` without logging.
+ * Data entry & indexing for Lawyers and Paralegal/Staff (title, case number,
+ * tags). Metadata only — file content can never be changed in Lawgda. Every
+ * edit, including typo fixes, goes through update_document_metadata(), which
+ * writes the change and its audit records in a single transaction.
  */
 export async function PATCH(request, { params }) {
   let user;
   let profile;
   try {
-    ({ user, profile } = await requirePermission(PERMISSIONS.DOCUMENT_INDEXING));
+    ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
+    await loadAccessibleDocument({ user, profile, documentId: String(params?.documentId || '') });
   } catch (error) {
     return rbacErrorResponse(error);
-  }
-
-  const documentId = String(params?.documentId || '').trim();
-  if (!documentId) {
-    return NextResponse.json({ error: 'Document ID is required.' }, { status: 400 });
   }
 
   const body = await request.json().catch(() => ({}));
-  const updates = {};
-  for (const field of EDITABLE_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(body, field)) {
-      updates[field] = body[field];
-    }
+  const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
+
+  if (!has('title') && !has('caseNumber') && !has('tags')) {
+    return NextResponse.json({ error: 'Provide at least one of: title, caseNumber, tags.' }, { status: 400 });
   }
 
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: `Provide at least one of: ${EDITABLE_FIELDS.join(', ')}.` }, { status: 400 });
+  const title = has('title') ? String(body.title ?? '').trim() : null;
+  const caseNumber = has('caseNumber') ? String(body.caseNumber ?? '').trim() : null;
+  const tags = has('tags') ? parseTags(body.tags) : null;
+  const note = String(body.note ?? '').trim();
+
+  if (title !== null && (!title || title.length > INDEX_LIMITS.title)) {
+    return NextResponse.json({ error: `Title is required and must be at most ${INDEX_LIMITS.title} characters.` }, { status: 400 });
+  }
+  const indexProblem = validateIndexFields({ caseNumber: caseNumber ?? '', tags: tags ?? [] });
+  if (indexProblem) {
+    return NextResponse.json({ error: indexProblem }, { status: 400 });
+  }
+  if (note.length > INDEX_LIMITS.note) {
+    return NextResponse.json({ error: `The reason for the change must be at most ${INDEX_LIMITS.note} characters.` }, { status: 400 });
   }
 
-  const supabaseAdmin = getSupabaseAdmin();
-  const { data: document, error: fetchError } = await supabaseAdmin
-    .from('documents')
-    .select('org_id')
-    .eq('id', documentId)
-    .single();
+  const { data: updated, error } = await getSupabaseAdmin().rpc('update_document_metadata', {
+    p_document_id: params.documentId,
+    p_actor: user.id,
+    p_actor_role: profile.role,
+    p_title: title,
+    p_case_number: caseNumber,
+    p_tags: tags,
+    p_note: note || null,
+  });
 
-  if (fetchError || !document) {
-    return NextResponse.json({ error: 'Document not found.' }, { status: 404 });
+  if (error || !updated) {
+    console.error('[index] update_document_metadata failed:', error?.message || 'no row returned');
+    const locked = error?.message?.includes('Filed documents are locked');
+    return NextResponse.json({ error: locked ? 'Filed documents are locked; their details can no longer be edited.' : 'Unable to save the changes.' }, { status: locked ? 409 : 400 });
   }
 
-  try {
-    assertOwnOrganization(profile, document.org_id);
-  } catch (error) {
-    return rbacErrorResponse(error);
-  }
+  revalidatePath(`/documents/${params.documentId}`);
+  revalidatePath('/dashboard');
+  revalidatePath('/cases');
 
-  try {
-    const updated = await performAuditedUpdate({
-      table: 'documents',
-      id: documentId,
-      updates,
-      actorUserId: user.id,
-      actorRole: profile.role,
-      orgId: profile.org_id,
-      metadata: { source: 'document_indexing_route' },
-    });
-    return NextResponse.json({ success: true, document: { id: updated.id, filename: updated.filename, folder_id: updated.folder_id } });
-  } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
+  return NextResponse.json({
+    success: true,
+    document: { id: updated.id, title: updated.title, caseNumber: updated.case_number, tags: updated.tags },
+  });
 }

@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
 import { ROLES } from '../../lib/rbac';
 import { requireWorkspaceMember } from '../../lib/rbacMiddleware';
 import { loadAccessibleDocument } from '../../lib/documentAccess';
+import { logDocumentAuditEvent } from '../../lib/auditLog';
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -50,8 +51,10 @@ async function resolveTargetUserId(actorOrgId: string, input: string) {
   return profile.user_id as string;
 }
 
+// Audit rows are written only by the server (service role); browser sessions
+// have no insert access to audit tables (migration 021).
 async function writeAuditLog(
-  supabase: ReturnType<typeof createSupabaseServerClient>,
+  _supabase: ReturnType<typeof createSupabaseServerClient>,
   payload: {
     documentId: string;
     actorUserId: string;
@@ -59,10 +62,10 @@ async function writeAuditLog(
     details: Record<string, unknown>;
   }
 ) {
-  await supabase.from('audit_logs').insert({
-    document_id: payload.documentId,
-    actor_user_id: payload.actorUserId,
-    event_type: payload.eventType,
+  await logDocumentAuditEvent({
+    documentId: payload.documentId,
+    actorUserId: payload.actorUserId,
+    eventType: payload.eventType,
     details: payload.details,
   });
 }

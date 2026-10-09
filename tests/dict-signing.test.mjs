@@ -11,14 +11,15 @@ async function loadHelper(path) {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 }
 const { extractKeyAndCertFromP12 } = await loadHelper('../lib/pkcs12.js');
-const { signRsaDigestWithPrivateKey, verifyRsaDigestWithCertificate } = await loadHelper('../lib/keyWrapping.js');
+const { signRsaDigestWithPrivateKey, verifyRsaDigestWithCertificate, LEGACY_RSA_SIGNATURE_SCHEME } = await loadHelper('../lib/keyWrapping.js');
+const { createHash, createPrivateKey, sign: nodeSign, verify: nodeVerify } = await import('node:crypto');
 const keys = forge.pki.rsa.generateKeyPair(2048);
-function certificate(pair, name) {
+function certificate(pair, name, { notBefore = new Date(Date.now() - 60000), notAfter = new Date(Date.now() + 86400000) } = {}) {
   const cert = forge.pki.createCertificate();
   cert.publicKey = pair.publicKey;
   cert.serialNumber = '01';
-  cert.validity.notBefore = new Date();
-  cert.validity.notAfter = new Date(Date.now() + 86400000);
+  cert.validity.notBefore = notBefore;
+  cert.validity.notAfter = notAfter;
   cert.setSubject([{ name: 'commonName', value: name }]);
   cert.setIssuer(cert.subject.attributes);
   cert.sign(pair.privateKey, forge.md.sha256.create());
@@ -38,6 +39,31 @@ for (const password of ['test-passphrase', null]) {
     assert.equal(verifyRsaDigestWithCertificate(extracted.certificatePem, Buffer.alloc(32), signature), false);
   });
 }
+test('signature is standard PKCS#1 v1.5 over the document SHA-256 (verifiable without Lawgda)', () => {
+  const extracted = extractKeyAndCertFromP12(bundle([leaf], 'secret'), 'secret');
+  const documentBytes = Buffer.from('%PDF-1.7 example document');
+  const digest = createHash('sha256').update(documentBytes).digest();
+  const signature = signRsaDigestWithPrivateKey(extracted.privateKeyDer, digest);
+  // Same check `openssl dgst -sha256 -verify` performs on the original file.
+  assert.equal(nodeVerify('sha256', documentBytes, extracted.certificatePem, Buffer.from(signature, 'base64')), true);
+});
+
+test('signatures made with the legacy double-hash scheme still verify when tagged legacy', () => {
+  const digest = Buffer.alloc(32, 7);
+  const privateKey = createPrivateKey(forge.pki.privateKeyToPem(keys.privateKey));
+  const legacySignature = nodeSign('sha256', digest, privateKey).toString('base64');
+  const certificatePem = forge.pki.certificateToPem(leaf);
+  assert.equal(verifyRsaDigestWithCertificate(certificatePem, digest, legacySignature, LEGACY_RSA_SIGNATURE_SCHEME), true);
+  assert.equal(verifyRsaDigestWithCertificate(certificatePem, digest, legacySignature), false);
+});
+
+test('rejects expired and not-yet-valid certificates', () => {
+  const expired = certificate(keys, 'Test signer', { notBefore: new Date('2020-01-01'), notAfter: new Date('2021-01-01') });
+  const future = certificate(keys, 'Test signer', { notBefore: new Date(Date.now() + 86400000), notAfter: new Date(Date.now() + 2 * 86400000) });
+  assert.throws(() => extractKeyAndCertFromP12(bundle([expired], 'secret'), 'secret'), /expired/);
+  assert.throws(() => extractKeyAndCertFromP12(bundle([future], 'secret'), 'secret'), /not valid until/);
+});
+
 test('matches the signer certificate when another certificate is first', () => {
   assert.equal(extractKeyAndCertFromP12(bundle([unrelated, leaf], 'secret'), 'secret').subjectCn, 'Test signer');
 });

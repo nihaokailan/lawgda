@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DndContext, PointerSensor, closestCenter, type DragEndEvent, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { createSupabaseBrowserClient } from '../../../../lib/supabase/client';
 import prep from './prepare.module.css';
 import shared from '../../../../styles/shared.module.css';
 
@@ -166,7 +165,6 @@ export default function PrepareDocumentClient({
   };
   initialSigningRequests: SigningRequest[];
 }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [originalUrl, setOriginalUrl] = useState('');
   const [participants, setParticipants] = useState<Participant[]>(() => toParticipantRows(initialSigningRequests));
@@ -181,66 +179,26 @@ export default function PrepareDocumentClient({
   useEffect(() => {
     let mounted = true;
 
-    async function createPreviewUrl(bucket: string, filePath: string) {
-      if (!bucket || !filePath) {
-        return '';
-      }
-
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, 120);
-      if (error || !data?.signedUrl) {
-        return '';
-      }
-
-      return data.signedUrl;
-    }
-
-    async function loadPreviewUrls() {
-      let hasAuthorizedPreview = false;
+    // The preview is always served by Lawgda's download route (never a direct
+    // Storage URL), so opening the document is recorded in the audit trail.
+    async function loadPreviewUrl() {
       try {
-        const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download`);
-        const payload = await response.json();
-        if (response.ok && payload.downloadUrl && mounted) {
-          hasAuthorizedPreview = true;
-          setOriginalUrl(payload.downloadUrl);
+        const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/download?check=1`);
+        if (response.ok && mounted) {
+          setOriginalUrl(`/api/documents/${encodeURIComponent(document.id)}/download?inline=1`);
         }
       } catch {
-        // Fall back to direct Storage URL resolution below.
-      }
-
-      const candidateBuckets = Array.from(new Set([document.bucket, 'secure_docs', 'evidence', 'org-documents', 'documents'].filter(Boolean)));
-      const candidatePaths = Array.from(new Set([
-        document.filePath,
-        document.filePath?.replace(/^\//, ''),
-        document.filePath ? document.filePath.split('/').slice(1).join('/') : '',
-      ].filter(Boolean)));
-
-      let resolvedOriginal = '';
-      for (const bucket of candidateBuckets) {
-        for (const filePath of candidatePaths) {
-          const signedUrl = await createPreviewUrl(bucket, filePath);
-          if (signedUrl) {
-            resolvedOriginal = signedUrl;
-            break;
-          }
-        }
-        if (resolvedOriginal) {
-          break;
-        }
-      }
-
-      if (mounted && !hasAuthorizedPreview) {
-        setOriginalUrl(resolvedOriginal);
+        // Leave the preview empty; the page shows its "not available" state.
       }
     }
 
-    // Load once. Re-resolving signed URLs on a timer swapped the iframe `src`
-    // every few seconds, which made the original document flash and reload.
-    loadPreviewUrls();
+    // Load once. Swapping the iframe `src` repeatedly made the document flash and reload.
+    loadPreviewUrl();
 
     return () => {
       mounted = false;
     };
-  }, [document.id, document.bucket, document.filePath, supabase]);
+  }, [document.id]);
 
   function updateParticipant(id: string, field: keyof Participant, value: string) {
     if (field === 'email') {

@@ -4,9 +4,10 @@ export const dynamic = 'force-dynamic';
 
 import { notFound } from 'next/navigation';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
-import { verifyWithPublicKeyPem, verifyRsaDigestWithCertificate } from '../../../lib/keyWrapping';
+import { verifyWithPublicKeyPem, verifyRsaDigestWithCertificate, LEGACY_RSA_SIGNATURE_SCHEME } from '../../../lib/keyWrapping';
 import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
+import PublicFileCheck from '../../components/PublicFileCheck';
 
 function getMetadata(value: unknown) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -55,8 +56,9 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
                 : integrity === false ? '✗ Broken chain — audit records may have been altered or are missing'
                   : 'Not fully verifiable — historical hashes or audit data unavailable'}
             </p>
-            <p className={shared.helpText}>Checks recorded events and their hash links. Older events without hashes cannot be checked for tampering. This check does not verify a separate copy of the PDF.</p>
+            <p className={shared.helpText}>Checks recorded events and their hash links. Older events without hashes cannot be checked for tampering. To check a separate copy of the PDF, use the file check below.</p>
           </section>
+          <PublicFileCheck auditToken={auditToken} />
           <section className={shared.sectionCard} style={{ marginBottom: '1rem' }}>
             <h2 className={shared.cardTitle}>Document history</h2>
             <p className={shared.helpText}>Oldest to newest · Philippine time</p>
@@ -102,7 +104,9 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
                     const signatureValid = verifyRsaDigestWithCertificate(
                       String(entry.certificate_pem),
                       Buffer.from(String(coveredHash || ''), 'hex'),
-                      String(entry.cryptographic_signature)
+                      String(entry.cryptographic_signature),
+                      // Entries written before signature_scheme existed used the legacy double-hash scheme.
+                      String(entry.signature_scheme || LEGACY_RSA_SIGNATURE_SCHEME)
                     );
                     return (
                       <p className={shared.helpText}>

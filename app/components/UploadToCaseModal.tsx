@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { sha256OfFile, uploadDocument, validateUploadFile } from '../../lib/uploadDocumentClient';
 import styles from '../../styles/dashboard.module.css';
 
 type UploadToCaseModalProps = {
@@ -12,29 +13,12 @@ type UploadToCaseModalProps = {
   onUploaded: () => void;
 };
 
-function toHex(buffer: ArrayBuffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function safeReadJson(response: Response) {
-  const text = await response.text();
-  if (!text) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {};
-  }
-}
-
 export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }: UploadToCaseModalProps) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [title, setTitle] = useState('');
+  const [caseNumber, setCaseNumber] = useState('');
+  const [tags, setTags] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileHash, setFileHash] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,16 +39,15 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
       return;
     }
 
-    if (nextFile.type !== 'application/pdf') {
+    const fileProblem = validateUploadFile(nextFile);
+    if (fileProblem) {
       setError(true);
-      setMessage('Only PDF files are allowed.');
+      setMessage(fileProblem);
       return;
     }
 
     // Compute SHA-256 immediately before any upload starts.
-    const buffer = await nextFile.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', buffer);
-    setFileHash(toHex(digest));
+    setFileHash(await sha256OfFile(nextFile));
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -104,30 +87,22 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
       return;
     }
 
-    const formData = new FormData();
-    formData.set('title', title.trim());
-    formData.set('sha256Hash', fileHash);
-    formData.set('caseId', caseId);
-    formData.set('file', file);
-
-    const response = await fetch('/api/documents/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const payload = await safeReadJson(response);
-    if (!response.ok) {
+    let uploadedDocument;
+    try {
+      ({ document: uploadedDocument } = await uploadDocument(supabase, { file, title: title.trim(), caseId, sha256Hash: fileHash, caseNumber, tags }));
+    } catch (failure) {
       setBusy(false);
       setError(true);
-      setMessage(`Upload failed: ${payload.error || 'Unable to upload document.'}`);
+      setMessage(`Upload failed: ${failure instanceof Error ? failure.message : 'Unable to upload document.'}`);
       return;
     }
 
-    const uploadedDocument = payload.document || null;
     const documentId = uploadedDocument && typeof uploadedDocument.id === 'string' ? uploadedDocument.id : null;
 
     setBusy(false);
     setTitle('');
+    setCaseNumber('');
+    setTags('');
     setFile(null);
     setFileHash('');
     onUploaded();
@@ -156,6 +131,27 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
               onChange={(event) => setTitle(event.target.value)}
               placeholder="for ex. Affidavit of Loss"
               required
+            />
+          </label>
+
+          <label className={styles.modalLabel}>
+            Case number (optional)
+            <input
+              className={styles.modalInput}
+              value={caseNumber}
+              onChange={(event) => setCaseNumber(event.target.value)}
+              maxLength={80}
+              placeholder="for ex. Civil Case No. R-DVO-26-01234"
+            />
+          </label>
+
+          <label className={styles.modalLabel}>
+            Tags (optional, comma-separated)
+            <input
+              className={styles.modalInput}
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              placeholder="for ex. deed of sale, land title"
             />
           </label>
 

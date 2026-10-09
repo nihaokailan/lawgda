@@ -8,7 +8,7 @@ import { generateSigningToken, hashSigningToken } from '../../../../lib/signingT
 import { transitionDocumentStatus } from '../../../../lib/documentLifecycle';
 import { ensureUserSigningKey } from '../../../../lib/userSigningKeys';
 import { ensureExternalSignerKey } from '../../../../lib/externalSignerKeys';
-import { signWithWrappedKey, signRsaDigestWithPrivateKey } from '../../../../lib/keyWrapping';
+import { signWithWrappedKey, signRsaDigestWithPrivateKey, RSA_SIGNATURE_SCHEME } from '../../../../lib/keyWrapping';
 import { extractKeyAndCertFromP12 } from '../../../../lib/pkcs12';
 import { sendSigningInvitationEmail } from '../../../../lib/email';
 import { randomBytes } from 'node:crypto';
@@ -85,18 +85,13 @@ export async function GET(request, { params }) {
     const metadata = document.metadata && typeof document.metadata === 'object' && !Array.isArray(document.metadata)
       ? document.metadata
       : {};
-    const reviewBucket = String(metadata.signed_bucket || document.bucket || 'secure_docs');
     const reviewPath = String(metadata.signed_file_path || metadata.signed_storage_path || metadata.signed_path || document.file_path || document.storage_path || document.path || '');
-    const { data: urlData, error: urlError } = await supabaseAdmin
-      .storage
-      .from(reviewBucket)
-      .createSignedUrl(reviewPath, 5 * 60);
-
-    if (urlError) {
-      return NextResponse.json({ error: `Unable to create document URL: ${urlError.message}` }, { status: 500 });
+    if (!reviewPath) {
+      return NextResponse.json({ error: 'The document file could not be located.' }, { status: 404 });
     }
 
-    reviewUrl = urlData.signedUrl;
+    // Served through Lawgda (never a raw Storage URL) so the delivery is audited.
+    reviewUrl = `/api/external-sign/${encodeURIComponent(token)}/file?version=review&email=${encodeURIComponent(providedEmail)}`;
 
     await logSigningAuditEvent({
       signingRequestId: signingRequest.id,
@@ -226,7 +221,12 @@ export async function POST(request, { params }) {
   const sourceBytes = await originalFile.arrayBuffer();
   const preSignHash = sha256Hex(sourceBytes);
 
-  if (clientDocumentHash && clientDocumentHash !== preSignHash) {
+  // Objective 3: the hash must be computed in the signer's browser and must
+  // match the stored file before anything is signed.
+  if (!/^[0-9a-f]{64}$/.test(clientDocumentHash)) {
+    return NextResponse.json({ error: 'The document must be hashed in your browser before signing. Please refresh and try again.' }, { status: 400 });
+  }
+  if (clientDocumentHash !== preSignHash) {
     return NextResponse.json({ error: 'The document hash computed in your browser does not match the document on file. Please refresh and try again.' }, { status: 409 });
   }
 
@@ -311,9 +311,10 @@ export async function POST(request, { params }) {
       signingPublicKey = userKey.publicKeyPem;
       signatureCovers = 'post_sign_hash';
     } catch (keyError) {
-      // The visual signature and hash chain remain valid evidence even if
-      // key management is temporarily unavailable, so signing still completes.
+      // Fail closed: a signature without its cryptographic proof must never be
+      // recorded. Nothing has been saved yet, so the signer can simply retry.
       console.error('[signing] Unable to apply cryptographic signature:', keyError);
+      return NextResponse.json({ error: 'The signing service is temporarily unavailable. Nothing was signed — please try again shortly.' }, { status: 503 });
     }
   }
   const signedPath = `signed/${document.id}/${signingRequest.signing_order}-${signingRequest.id}-signed.pdf`;
@@ -376,12 +377,14 @@ export async function POST(request, { params }) {
     signer_name: signatureName,
     signer_email: providedEmail,
     pre_sign_hash: preSignHash,
+    browser_computed_hash: clientDocumentHash,
     post_sign_hash: postSignHash,
     signed_file_path: signedPath,
     signed_at: now,
     signing_method: signingMethod,
     cryptographic_signature: cryptographicSignature,
     signature_covers: signatureCovers,
+    signature_scheme: signingMethod === 'dict' ? RSA_SIGNATURE_SCHEME : 'ed25519',
     signing_public_key: signingPublicKey,
     certificate_pem: signatureCertificatePem,
     certificate_details: certificateDetails,
@@ -413,7 +416,8 @@ export async function POST(request, { params }) {
 
   const statusTransition = await transitionDocumentStatus({
     documentId: signingRequest.document_id,
-    toStatus: allSignersCompleted ? 'Filed' : 'Pending',
+    // Completing every signature makes the document Signed; filing it is a separate Lawyer action.
+    toStatus: allSignersCompleted ? 'Signed' : 'Pending',
     reason: allSignersCompleted ? 'final_signature_completed' : 'signature_recorded',
     extraDetails: { signing_request_id: signingRequest.id, signer_email: providedEmail },
   });
@@ -427,9 +431,9 @@ export async function POST(request, { params }) {
     details: { ...chainEntry },
   });
 
-  if (allSignersCompleted && !statusTransition.transitioned && statusTransition.fromStatus !== 'Filed') {
-    console.error('[signing] Unable to file completed document:', statusTransition.error);
-    return NextResponse.json({ error: 'Your signature and signed PDF were saved, but the document could not be marked Filed. Please contact the document owner.' }, { status: 500 });
+  if (allSignersCompleted && !statusTransition.transitioned && !['Signed', 'Filed'].includes(statusTransition.fromStatus)) {
+    console.error('[signing] Unable to mark completed document as Signed:', statusTransition.error);
+    return NextResponse.json({ error: 'Your signature and signed PDF were saved, but the document could not be marked Signed. Please contact the document owner.' }, { status: 500 });
   }
 
   const { data: nextSigner } = await supabaseAdmin
@@ -473,6 +477,6 @@ export async function POST(request, { params }) {
     }
   }
 
-  const { data: signedUrl } = await supabaseAdmin.storage.from(bucket).createSignedUrl(signedPath, 5 * 60);
-  return NextResponse.json({ success: true, signedUrl: signedUrl?.signedUrl || null });
+  // The signer's copy is delivered through Lawgda so the delivery is audited.
+  return NextResponse.json({ success: true, signedUrl: `/api/external-sign/${encodeURIComponent(token)}/file?version=signed` });
 }

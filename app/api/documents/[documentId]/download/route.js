@@ -2,6 +2,7 @@ import { loadAccessibleDocument } from '../../../../../lib/documentAccess';
 import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
 import { NextResponse } from 'next/server';
 import { getAuthContext, assertCanViewDocumentContent, rbacErrorResponse } from '../../../../../lib/rbacMiddleware';
+import { logDocumentAuditEvent } from '../../../../../lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,10 @@ export async function GET(request, { params }) {
   // STRICT DENY: neither admin tier ever receives document payload, and the
   // caller must belong to the document's organization and hold access to it.
   let document;
+  let user;
+  let profile;
   try {
-    const { user, profile } = await getAuthContext();
+    ({ user, profile } = await getAuthContext());
     assertCanViewDocumentContent(profile.role);
     document = await loadAccessibleDocument({ user, profile, documentId: params.documentId });
   } catch (error) {
@@ -35,9 +38,31 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: isSignedVersion ? 'A signed PDF is not available yet.' : 'The uploaded PDF file could not be located.' }, { status: 404 });
   }
 
+  // Availability check only: no file or URL is released, so nothing is logged.
+  if (searchParams.get('check') === '1') {
+    return NextResponse.json({ available: true }, { headers: { 'Cache-Control': 'private, no-store' } });
+  }
+
+  // Objective 2: every access to the file's content is part of the chain of custody.
+  const isInline = searchParams.get('inline') === '1';
+  const requestedPurpose = searchParams.get('purpose');
+  const purpose = isInline || requestedPurpose === 'preview' ? 'preview' : requestedPurpose === 'verification' ? 'verification' : 'download';
+  try {
+    await logDocumentAuditEvent({
+      documentId: document.id,
+      actorUserId: user.id,
+      eventType: purpose === 'preview' ? 'document_viewed' : 'document_downloaded',
+      details: { context: purpose === 'preview' ? 'pdf_preview' : purpose, version: isSignedVersion ? 'signed' : 'original', role: profile.role },
+    });
+  } catch (failure) {
+    // Fail closed: content is not released if its access cannot be recorded.
+    console.error('[audit] Unable to record file access:', failure);
+    return NextResponse.json({ error: 'Unable to record this access in the audit trail. Please try again.' }, { status: 503 });
+  }
+
   // A stable, authenticated preview URL reads storage afresh on every open.
   // It never exposes an expiring storage URL to the browser's PDF viewer.
-  if (searchParams.get('inline') === '1') {
+  if (isInline) {
     const { data: file, error: fileError } = await supabaseAdmin.storage.from(bucket).download(filePath);
     if (fileError || !file) {
       return new NextResponse('Unable to open this document. Return to Lawgda and try again.', {

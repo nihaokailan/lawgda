@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { saveVerificationSession } from '../../lib/verificationSession';
 import { useEffect, useRef, useState } from 'react';
-import { compareDocumentBytes, getVerificationTarget } from '../../lib/documentVerification';
+import { compareDocumentBytes, getVerificationTarget, recordIntegrityCheck } from '../../lib/documentVerification';
 import VerificationFilePicker from './VerificationFilePicker';
 import shared from '../../styles/shared.module.css';
 
@@ -74,6 +74,8 @@ export default function VerifyDocumentForm() {
       if (!target.hash) throw new Error('This document version does not have a recorded hash yet.');
       const bytes = await file.arrayBuffer();
       const comparison = await compareDocumentBytes(bytes, target.hash);
+      // Every check, passed or failed, is written to the document's audit trail.
+      await recordIntegrityCheck(selectedDocument.id, comparison.computedHash, version, 'verify_page');
       if (!controller.signal.aborted) {
         const sessionId = saveVerificationSession({
           documentId: selectedDocument.id,

@@ -7,6 +7,7 @@ import UploadModal from '../components/UploadModal';
 import Pagination from '../components/Pagination';
 import SignNowButton from '../components/SignNowButton';
 import styles from '../../styles/documents.module.css';
+import { matchesIndexQuery } from '../../lib/documentIndexing';
 
 const PAGE_SIZE = 8;
 
@@ -17,6 +18,7 @@ type DocumentRow = {
   createdAt: string | null;
   ownerLabel: string;
   ownerInitials: string;
+  caseNumber: string | null;
   tags: string[];
   myAction?: 'sign' | 'waiting' | null;
 };
@@ -97,7 +99,8 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
     return visibleDocuments.filter((row) => {
       if (!matchesFilter(filter, row)) return false;
       if (!q) return true;
-      return row.title.toLowerCase().includes(q) || row.status.toLowerCase().includes(q) || row.ownerLabel.toLowerCase().includes(q);
+      // Indexing: staff-entered title, case number and tags are all searchable.
+      return matchesIndexQuery(row, q) || row.status.toLowerCase().includes(q) || row.ownerLabel.toLowerCase().includes(q);
     });
   }, [visibleDocuments, filter, query]);
 
@@ -109,7 +112,7 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
   const currentPage = Math.min(page, pageCount);
   const pagedDocuments = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  function handleUploaded(document: { id: string | null; title: string; status: string; createdAt: string | null }) {
+  function handleUploaded(document: { id: string | null; title: string; status: string; createdAt: string | null; caseNumber?: string | null; tags?: string[] }) {
     if (!document.id) return;
 
     setVisibleDocuments((current) => [
@@ -120,7 +123,8 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
         createdAt: document.createdAt,
         ownerLabel: 'You',
         ownerInitials: 'YO',
-        tags: ['Legal'],
+        caseNumber: document.caseNumber ?? null,
+        tags: document.tags ?? [],
       },
       ...current.filter((row) => row.id !== document.id),
     ]);
@@ -164,7 +168,7 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
       <div className={styles.searchRow}>
         <input
           className={styles.searchInput}
-          placeholder="Search document title, status, or owner"
+          placeholder="Search by title, case number, tag, status, or owner"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -193,7 +197,16 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
                   onClick={() => router.push(`/documents/${row.id}/prepare`)}
                   onKeyDown={(event) => { if (event.key === 'Enter') router.push(`/documents/${row.id}/prepare`); }}
                 >
-                  <td>{row.title}</td>
+                  <td>
+                    <div>{row.title}</div>
+                    {(row.caseNumber || row.tags.length > 0) && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
+                        {row.caseNumber && <span>{row.caseNumber}</span>}
+                        {row.caseNumber && row.tags.length > 0 && <span> · </span>}
+                        {row.tags.length > 0 && <span>{row.tags.map((tag) => `#${tag}`).join(' ')}</span>}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     {row.myAction === 'sign' ? (
                       <SignNowButton documentId={row.id} label="Pending your signature — Sign now" className={`${styles.statusPill} ${styles.statusPillPending}`} style={{ cursor: 'pointer', border: 0 }} />

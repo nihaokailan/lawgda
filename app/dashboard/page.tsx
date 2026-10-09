@@ -3,6 +3,7 @@ import { requireDocumentAccess } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
 import DashboardClient from './DashboardClient';
+import RealtimeRefresh from '../components/RealtimeRefresh';
 import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
 import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
 import { loadMySigningTurns } from '../../lib/signingTurn';
@@ -173,6 +174,7 @@ export default async function DashboardPage() {
       title="LAWDGA Dashboard"
       subtitle={`Welcome back, ${getFirstName(profile.full_name, user.email)}.`}
     >
+      <RealtimeRefresh />
       <DashboardClient
         initialDocuments={recentDocuments}
         initialMetrics={metrics}

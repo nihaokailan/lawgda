@@ -32,7 +32,7 @@ test('reads stored bytes through the authorized download endpoint', async (t) =>
   const controller = new AbortController();
   const actual = await readStoredDocument('document-id', '?version=signed', controller.signal);
   assert.deepEqual(new Uint8Array(actual), bytes);
-  assert.equal(calls[0].url, '/api/documents/document-id/download?version=signed');
+  assert.equal(calls[0].url, '/api/documents/document-id/download?version=signed&purpose=verification');
   assert.equal(calls[1].url, 'https://storage.example/signed.pdf');
   assert.equal(calls[1].options.signal, controller.signal);
   assert.equal((await compareDocumentBytes(actual, hash)).matches, true);

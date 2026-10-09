@@ -1,11 +1,15 @@
 import { notFound, redirect } from 'next/navigation';
 import WorkspaceShell from '../../components/WorkspaceShell';
 import SignNowButton from '../../components/SignNowButton';
+import FileDocumentButton from '../../components/FileDocumentButton';
+import DocumentDetailsEditor from '../../components/DocumentDetailsEditor';
+import { ROLES } from '../../../lib/rbac';
 import { loadMySigningTurns } from '../../../lib/signingTurn';
 import { requireDocumentAccess } from '../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import DocumentViewClient from './DocumentViewClient';
+import RealtimeRefresh from '../../components/RealtimeRefresh';
 import Link from 'next/link';
 import shared from '../../../styles/shared.module.css';
 import { logDocumentAuditEvent } from '../../../lib/auditLog';
@@ -89,6 +93,14 @@ export default async function DocumentViewPage({ params }: { params: { documentI
         </Link>
       </div>
       
+      {profile.role === ROLES.LAWYER && document.status === 'Signed' && (
+        <div className={shared.sectionCard} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
+          <h3 style={{ marginTop: 0 }}>Ready to file</h3>
+          <p className={shared.cardText}>Every signer has signed. Mark the document as Filed once it has been submitted — this is recorded in the audit trail and cannot be undone.</p>
+          <FileDocumentButton documentId={documentId} className={shared.button} />
+        </div>
+      )}
+
       {mySigningTurn && (
         <div className={shared.sectionCard} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
           {mySigningTurn.state === 'sign' ? (
@@ -106,6 +118,16 @@ export default async function DocumentViewPage({ params }: { params: { documentI
         </div>
       )}
 
+      <DocumentDetailsEditor
+        documentId={documentId}
+        title={String(document.title || document.filename || 'Untitled document')}
+        caseNumber={document.case_number ?? null}
+        tags={Array.isArray(document.tags) ? document.tags : []}
+        canEdit={profile.role === ROLES.LAWYER || profile.role === ROLES.STAFF}
+        locked={document.status === 'Filed'}
+      />
+
+      <RealtimeRefresh filter={`id=eq.${documentId}`} />
       <DocumentViewClient
         document={{
           ...document,

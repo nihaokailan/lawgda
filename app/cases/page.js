@@ -1,5 +1,6 @@
 import WorkspaceShell from '../components/WorkspaceShell';
 import DocumentsWorkspaceClient from './DocumentsWorkspaceClient';
+import RealtimeRefresh from '../components/RealtimeRefresh';
 import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
 import { loadMySigningTurns } from '../../lib/signingTurn';
 import { requireDocumentAccess } from '../../lib/authGuard';
@@ -166,7 +167,8 @@ export default async function CasesPage() {
         createdAt: record.created_at,
         ownerLabel,
         ownerInitials: getInitials(ownerLabel === 'You' ? profile.full_name || user.email || 'You' : ownerLabel),
-        tags: ['Legal'],
+        caseNumber: record.case_number ?? null,
+        tags: Array.isArray(record.tags) ? record.tags : [],
         myAction: turns.get(record.id)?.state ?? null,
       };
     })
@@ -180,6 +182,7 @@ export default async function CasesPage() {
       title="Documents"
       subtitle={`Welcome back, ${firstName}. Role: ${ROLE_LABELS[profile.role] ?? profile.role}.`}
     >
+      <RealtimeRefresh />
       <DocumentsWorkspaceClient documents={documents} />
     </WorkspaceShell>
   );

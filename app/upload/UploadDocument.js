@@ -3,17 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { uploadDocument, validateUploadFile } from '../../lib/uploadDocumentClient';
 import shared from '../../styles/shared.module.css';
-
-function toHex(buffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 export default function UploadDocument() {
   const router = useRouter();
   const [title, setTitle] = useState('');
+  const [caseNumber, setCaseNumber] = useState('');
+  const [tags, setTags] = useState('');
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -42,15 +39,10 @@ export default function UploadDocument() {
       return;
     }
 
-    if (!file) {
+    const fileProblem = validateUploadFile(file);
+    if (fileProblem) {
       setError(true);
-      setMessage('Please select a PDF file.');
-      return;
-    }
-
-    if (file.type !== 'application/pdf') {
-      setError(true);
-      setMessage('Only PDF files are allowed.');
+      setMessage(fileProblem);
       return;
     }
 
@@ -68,32 +60,23 @@ export default function UploadDocument() {
       return;
     }
 
-    const buffer = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', buffer);
-    const sha256 = toHex(digest);
-    setHash(sha256);
-
-    const formData = new FormData();
-    formData.set('title', title.trim());
-    formData.set('sha256Hash', sha256);
-    formData.set('file', file);
-
-    const response = await fetch('/api/documents/upload', {
-      method: 'POST',
-      body: formData,
-    });
-    const payload = await response.json();
-
-    if (!response.ok) {
+    let payload;
+    try {
+      const result = await uploadDocument(supabase, { file, title: title.trim(), caseNumber, tags });
+      setHash(result.sha256Hash);
+      payload = result;
+    } catch (failure) {
       setBusy(false);
       setError(true);
-      setMessage(`Upload failed: ${payload.error || 'Unable to upload document.'}`);
+      setMessage(`Upload failed: ${failure instanceof Error ? failure.message : 'Unable to upload document.'}`);
       return;
     }
 
     setBusy(false);
 
     setTitle('');
+    setCaseNumber('');
+    setTags('');
     setFile(null);
     setMessage('Document uploaded and hashed successfully.');
 
@@ -116,6 +99,27 @@ export default function UploadDocument() {
             onChange={(event) => setTitle(event.target.value)}
             placeholder="for ex. Deed of Sale - Santos Property"
             required
+          />
+        </label>
+
+        <label className={shared.fieldLabel}>
+          Case number (optional)
+          <input
+            className={shared.input}
+            value={caseNumber}
+            onChange={(event) => setCaseNumber(event.target.value)}
+            maxLength={80}
+            placeholder="for ex. Civil Case No. R-DVO-26-01234"
+          />
+        </label>
+
+        <label className={shared.fieldLabel}>
+          Tags (optional, comma-separated)
+          <input
+            className={shared.input}
+            value={tags}
+            onChange={(event) => setTags(event.target.value)}
+            placeholder="for ex. deed of sale, land title"
           />
         </label>
 

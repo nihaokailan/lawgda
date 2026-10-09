@@ -25,40 +25,6 @@ type AuditEntry = {
   details: Record<string, unknown> | null;
 };
 
-function toHex(buffer: ArrayBuffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function uploadWithBucketFallback(
-  supabase: ReturnType<typeof createSupabaseBrowserClient>,
-  filePath: string,
-  file: File
-) {
-  const buckets = ['secure_docs', 'evidence', 'org-documents'];
-  let lastError = 'Upload failed.';
-
-  for (const bucket of buckets) {
-    const { error } = await supabase.storage.from(bucket).upload(filePath, file, {
-      upsert: false,
-      cacheControl: '3600',
-      contentType: file.type || 'application/pdf',
-    });
-
-    if (!error) {
-      return { bucket, error: null as string | null };
-    }
-
-    lastError = error.message;
-    if (!error.message.toLowerCase().includes('bucket not found')) {
-      return { bucket: null, error: lastError };
-    }
-  }
-
-  return { bucket: null, error: lastError };
-}
-
 export default function DocumentEditClient({
   document,
   signingRequests: initialSigningRequests,
@@ -85,7 +51,6 @@ export default function DocumentEditClient({
   const [signerName, setSignerName] = useState('');
   const [signerEmail, setSignerEmail] = useState('');
   const [signingOrder, setSigningOrder] = useState(1);
-  const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -175,66 +140,6 @@ export default function DocumentEditClient({
     router.refresh();
   }
 
-  async function applyCertificate(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!certificateFile) {
-      setError(true);
-      setMessage('Choose a certificate file first.');
-      return;
-    }
-
-    setBusy(true);
-    setError(false);
-    setMessage('');
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setBusy(false);
-      setError(true);
-      setMessage('You must be signed in.');
-      return;
-    }
-
-    const certBuffer = await certificateFile.arrayBuffer();
-    const certHash = toHex(await crypto.subtle.digest('SHA-256', certBuffer));
-    const safeName = certificateFile.name.replace(/\s+/g, '-').toLowerCase();
-    const certPath = `${user.id}/certificates/${document.id}-${Date.now()}-${safeName}`;
-
-    const uploadResult = await uploadWithBucketFallback(supabase, certPath, certificateFile);
-    if (uploadResult.error || !uploadResult.bucket) {
-      setBusy(false);
-      setError(true);
-      setMessage(`Certificate upload failed: ${uploadResult.error}`);
-      return;
-    }
-
-    const response = await fetch(`/api/documents/${encodeURIComponent(document.id)}/certificate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        certificatePath: certPath,
-        certificateHash: certHash,
-      }),
-    });
-
-    const payload = await response.json();
-    setBusy(false);
-
-    if (!response.ok) {
-      setError(true);
-      setMessage(payload.error || 'Unable to apply DICT certificate.');
-      return;
-    }
-
-    setCertificateFile(null);
-    setMessage('DICT issued certificate applied and logged.');
-    await refreshPanelData();
-    router.refresh();
-  }
-
   return (
     <section className={styles.editorSplitLayout}>
       <article className={styles.editorLeftPane}>
@@ -299,26 +204,6 @@ export default function DocumentEditClient({
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div className={styles.editorPaper}>
-          <h3 className={styles.sectionTitle}>DICT Issued Certificate</h3>
-          {document.isOwner ? (
-            <form onSubmit={applyCertificate} className={styles.modalBody}>
-              <label className={styles.modalLabel}>
-                Certificate File
-                <input
-                  className={styles.modalInput}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(e) => setCertificateFile(e.target.files?.[0] || null)}
-                />
-              </label>
-              <button type="submit" className={styles.secondaryActionButton} disabled={busy}>Apply Certificate</button>
-            </form>
-          ) : (
-            <p className={styles.infoText}>Certificate controls are owner-only.</p>
-          )}
         </div>
 
         <div className={styles.editorPaper}>

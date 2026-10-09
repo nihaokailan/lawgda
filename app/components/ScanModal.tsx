@@ -20,6 +20,12 @@ type AuditRow = {
 
 const SCANNER_ID = 'lawgda-qr-scanner';
 
+// Case folder labels carry .../cases/<uuid>; navigation stays on this site.
+function extractCaseId(input: string) {
+  const match = input.match(/\/cases\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i);
+  return match ? match[1] : null;
+}
+
 function extractUuid(input: string) {
   const match = input.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
   return match ? match[0] : null;
@@ -98,9 +104,15 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
               router.push(`/verify/${encodeURIComponent(auditToken)}`);
               return;
             }
+            const caseId = extractCaseId(decodedText);
+            if (caseId) {
+              onCloseRef.current();
+              router.push(`/cases/${caseId}`);
+              return;
+            }
             const uuid = extractUuid(decodedText);
             if (!uuid) {
-              setMessage('QR decoded, but it is not a Lawgda verification link or document ID.');
+              setMessage('QR decoded, but it is not a Lawgda verification link, case folder label or document ID.');
               return;
             }
             await loadAudit(uuid);
@@ -143,6 +155,12 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
     if (auditToken) {
       onClose();
       router.push(`/verify/${encodeURIComponent(auditToken)}`);
+      return;
+    }
+    const caseId = extractCaseId(scanText);
+    if (caseId) {
+      onClose();
+      router.push(`/cases/${caseId}`);
       return;
     }
     const uuid = extractUuid(scanText);

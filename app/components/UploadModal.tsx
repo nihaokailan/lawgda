@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { uploadDocument, validateUploadFile } from '../../lib/uploadDocumentClient';
 import styles from '../../styles/dashboard.module.css';
 
 type DashboardDocument = {
@@ -11,6 +12,8 @@ type DashboardDocument = {
   status: 'Drafting' | 'Pending' | 'Signed' | 'Filed';
   sha256Hash: string | null;
   createdAt: string | null;
+  caseNumber?: string | null;
+  tags?: string[];
 };
 
 type UploadModalProps = {
@@ -20,28 +23,11 @@ type UploadModalProps = {
   redirectOnUpload?: boolean;
 };
 
-function toHex(buffer: ArrayBuffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function safeReadJson(response: Response) {
-  const text = await response.text();
-  if (!text) {
-    return {};
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {};
-  }
-}
-
 export default function UploadModal({ open, onClose, onUploaded, redirectOnUpload = true }: UploadModalProps) {
   const router = useRouter();
   const [title, setTitle] = useState('');
+  const [caseNumber, setCaseNumber] = useState('');
+  const [tags, setTags] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -62,15 +48,10 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
       return;
     }
 
-    if (!file) {
+    const fileProblem = validateUploadFile(file);
+    if (!file || fileProblem) {
       setError(true);
-      setMessage('Please select a PDF file.');
-      return;
-    }
-
-    if (file.type !== 'application/pdf') {
-      setError(true);
-      setMessage('Only PDF files are allowed.');
+      setMessage(fileProblem);
       return;
     }
 
@@ -88,32 +69,20 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
       return;
     }
 
-    const buffer = await file.arrayBuffer();
-    const digest = await crypto.subtle.digest('SHA-256', buffer);
-    const sha256 = toHex(digest);
-    setHash(sha256);
-
-    const formData = new FormData();
-    formData.set('title', title.trim());
-    formData.set('sha256Hash', sha256);
-    formData.set('file', file);
-
-    const response = await fetch('/api/documents/upload', {
-      method: 'POST',
-      body: formData,
-    });
-
-    const payload = await safeReadJson(response);
-    if (!response.ok) {
+    let uploadedDocument;
+    let sha256: string;
+    try {
+      ({ document: uploadedDocument, sha256Hash: sha256 } = await uploadDocument(supabase, { file, title: title.trim(), caseNumber, tags }));
+    } catch (failure) {
       setBusy(false);
       setError(true);
-      setMessage(`Upload failed: ${payload.error || 'Unable to upload document.'}`);
+      setMessage(`Upload failed: ${failure instanceof Error ? failure.message : 'Unable to upload document.'}`);
       return;
     }
+    setHash(sha256);
 
     setBusy(false);
 
-    const uploadedDocument = payload.document || null;
     const uploadedId = uploadedDocument && typeof uploadedDocument.id === 'string' ? uploadedDocument.id : null;
 
     onUploaded({
@@ -122,10 +91,14 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
       status: 'Drafting',
       sha256Hash: sha256,
       createdAt: typeof uploadedDocument?.created_at === 'string' ? uploadedDocument.created_at : new Date().toISOString(),
+      caseNumber: uploadedDocument?.case_number ?? null,
+      tags: Array.isArray(uploadedDocument?.tags) ? uploadedDocument.tags : [],
     });
 
     setMessage('Document uploaded and hashed successfully.');
     setTitle('');
+    setCaseNumber('');
+    setTags('');
     setFile(null);
 
     // Open the new document straight away so the next step (assigning signers) starts immediately.
@@ -157,6 +130,27 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
               onChange={(event) => setTitle(event.target.value)}
               placeholder="for ex. Deed of Sale - Santos Property"
               required
+            />
+          </label>
+
+          <label className={styles.modalLabel}>
+            Case number (optional)
+            <input
+              className={styles.modalInput}
+              value={caseNumber}
+              onChange={(event) => setCaseNumber(event.target.value)}
+              maxLength={80}
+              placeholder="for ex. Civil Case No. R-DVO-26-01234"
+            />
+          </label>
+
+          <label className={styles.modalLabel}>
+            Tags (optional, comma-separated)
+            <input
+              className={styles.modalInput}
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              placeholder="for ex. deed of sale, land title"
             />
           </label>
 

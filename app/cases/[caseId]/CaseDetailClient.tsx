@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import UploadToCaseModal from '../../components/UploadToCaseModal';
 import AddSignerModal from '../../components/AddSignerModal';
+import CaseQrCard from '../../components/CaseQrCard';
+import AuditTrailList, { type AuditTrailEntry } from '../../components/AuditTrailList';
 import styles from '../../../styles/dashboard.module.css';
 
 type CaseDocument = {
@@ -25,11 +27,13 @@ export default function CaseDetailClient({
   caseTitle,
   isOwner,
   documents,
+  activity,
 }: {
   caseId: string;
   caseTitle: string;
   isOwner: boolean;
   documents: CaseDocument[];
+  activity: AuditTrailEntry[];
 }) {
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [signerDocumentId, setSignerDocumentId] = useState<string | null>(null);
@@ -104,6 +108,14 @@ export default function CaseDetailClient({
           </div>
         )}
       </section>
+
+      <section className={styles.workspaceCard}>
+        <h3 className={styles.sectionTitle}>Case Chain of Custody</h3>
+        <p className={styles.infoText}>Most recent recorded activity across this case&apos;s documents.</p>
+        <AuditTrailList entries={activity} maxHeight={360} />
+      </section>
+
+      <CaseQrCard caseId={caseId} caseTitle={caseTitle} />
 
       <UploadToCaseModal
         open={isUploadOpen}

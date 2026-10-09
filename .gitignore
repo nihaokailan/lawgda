@@ -4,3 +4,8 @@ node_modules/
 .next-dev/
 .env
 .DS_Store
+
+# Local build/dev artifacts
+.next-dev.log
+tsconfig.tsbuildinfo
+Icon?

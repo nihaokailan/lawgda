@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import shared from '../../styles/shared.module.css';
+import { recordIntegrityCheck } from '../../lib/documentVerification';
 import styles from '../../../styles/workspace.module.css';
 
 type VerifyProps = {
+  documentId: string;
+  version: 'original' | 'signed';
   documentTitle: string;
   storedHash: string;
   hashLabel?: string;
@@ -16,7 +19,8 @@ function toHex(buffer: ArrayBuffer) {
     .join('');
 }
 
-export default function DocumentVerifier({ documentTitle, storedHash, hashLabel = 'Original SHA-256' }: VerifyProps) {
+export default function DocumentVerifier({ documentId, version, documentTitle, storedHash, hashLabel = 'Original SHA-256' }: VerifyProps) {
+  const [recordError, setRecordError] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [computedHash, setComputedHash] = useState('');
   const [verificationResult, setVerificationResult] = useState<'match' | 'mismatch' | null>(null);
@@ -36,11 +40,13 @@ export default function DocumentVerifier({ documentTitle, storedHash, hashLabel 
       const hash = toHex(digest);
       setComputedHash(hash);
 
-      // Auto-check if hashes match
-      if (hash.toLowerCase() === (storedHash || '').toLowerCase()) {
-        setVerificationResult('match');
-      } else {
-        setVerificationResult('mismatch');
+      // The server decides the result from the hash and records it in the audit trail.
+      setRecordError('');
+      try {
+        const recorded = await recordIntegrityCheck(documentId, hash, version, 'document_page');
+        setVerificationResult(recorded.matches ? 'match' : 'mismatch');
+      } catch {
+        setRecordError('The check could not be recorded in the audit trail, so no result is shown. Please try again.');
       }
     } catch (err) {
       console.error('Error computing hash:', err);
@@ -56,8 +62,9 @@ export default function DocumentVerifier({ documentTitle, storedHash, hashLabel 
     <div className={shared.sectionCard} style={{ marginTop: '2rem' }}>
       <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Verify Document Integrity</h3>
       <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>
-        Upload the downloaded file to verify it has not been modified. The SHA-256 hash must match exactly.
+        Upload the downloaded file to verify it has not been modified. The SHA-256 hash must match exactly. Each check is recorded in the audit trail.
       </p>
+      {recordError && <p role="alert" style={{ color: '#991b1b' }}>{recordError}</p>}
 
       <div style={{ marginBottom: '1.5rem' }}>
         <label className={shared.fieldLabel} style={{ marginBottom: '0.5rem' }}>

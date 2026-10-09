@@ -5,30 +5,9 @@ import { ROLES } from '../../../../lib/rbac';
 import { requireWorkspaceMember, rbacErrorResponse } from '../../../../lib/rbacMiddleware';
 import { sha256Hex } from '../../../../lib/documentHash';
 import { logDocumentAuditEvent } from '../../../../lib/auditLog';
-
-async function uploadWithFallbackBuckets(supabaseAdmin, filePath, file) {
-  const buckets = ['secure_docs', 'evidence', 'org-documents'];
-  let lastError = 'Upload failed.';
-
-  for (const bucket of buckets) {
-    const { error } = await supabaseAdmin.storage.from(bucket).upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type || 'application/pdf',
-    });
-
-    if (!error) {
-      return { bucket, error: null };
-    }
-
-    lastError = error.message;
-    if (!error.message.toLowerCase().includes('bucket not found')) {
-      return { bucket: null, error: lastError };
-    }
-  }
-
-  return { bucket: null, error: lastError };
-}
+import { createSupabaseServerClient } from '../../../../lib/supabase/server';
+import { INCOMING_PREFIX, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, UPLOAD_BUCKETS } from '../../../../lib/uploadLimits';
+import { parseTags, validateIndexFields } from '../../../../lib/documentIndexing';
 
 async function insertDocumentRecord(supabaseAdmin, payload) {
   async function adaptiveInsert(baseCandidate) {
@@ -51,7 +30,6 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
     return { data: null, error: 'Unable to save document metadata after schema fallback attempts.' };
   }
 
-  const safeName = String(payload.fileName || payload.title || 'document.pdf').replace(/\s+/g, '-');
   const recordTimestamp = new Date().toISOString();
 
   const attempts = [
@@ -60,12 +38,15 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       owner_id: payload.userId,
       uploaded_by: payload.userId,
       org_id: payload.orgId,
+      case_id: payload.caseId,
       bucket: payload.bucket,
       path: payload.filePath,
       file_path: payload.filePath,
       title: payload.title,
       status: 'Drafting',
       sha256_hash: payload.sha256Hash,
+      case_number: payload.caseNumber,
+      tags: payload.tags,
       created_at: recordTimestamp,
     },
     {
@@ -73,6 +54,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       owner_id: payload.userId,
       uploaded_by: payload.userId,
       org_id: payload.orgId,
+      case_id: payload.caseId,
       bucket: payload.bucket,
       path: payload.filePath,
       file_path: payload.filePath,
@@ -85,6 +67,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       owner_id: payload.userId,
       uploaded_by: payload.userId,
       org_id: payload.orgId,
+      case_id: payload.caseId,
       path: payload.filePath,
       file_path: payload.filePath,
       title: payload.title,
@@ -106,6 +89,15 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
   return { data: null, error: lastError };
 }
 
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
+/**
+ * Step 2 of an upload (step 1 is /api/documents/upload-url): the browser has
+ * already sent the PDF to Storage and reports the SHA-256 it computed locally.
+ * The server re-hashes the stored bytes; only if both hashes match is the file
+ * moved to its permanent UUID-named path and recorded as a Drafting document.
+ */
 export async function POST(request) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
@@ -120,50 +112,86 @@ export async function POST(request) {
       return rbacErrorResponse(error);
     }
 
-    const formData = await request.formData();
-    const title = String(formData.get('title') || '').trim();
-    const caseIdRaw = String(formData.get('caseId') || '').trim();
-    const caseId = caseIdRaw || null;
-    const file = formData.get('file');
+    const body = await request.json().catch(() => ({}));
+    const title = String(body?.title || '').trim();
+    const caseId = String(body?.caseId || '').trim() || null;
+    const bucket = String(body?.bucket || '');
+    const incomingPath = String(body?.path || '');
+    const clientHash = String(body?.sha256Hash || '').trim().toLowerCase();
+    // Indexing metadata entered at upload (§1.5.2(4)); both are optional.
+    const caseNumber = String(body?.caseNumber || '').trim() || null;
+    const tags = parseTags(body?.tags);
 
     if (!title) {
       return NextResponse.json({ error: 'Document title is required.' }, { status: 400 });
     }
-
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'A PDF file is required.' }, { status: 400 });
+    const indexProblem = validateIndexFields({ caseNumber: caseNumber ?? '', tags });
+    if (indexProblem) {
+      return NextResponse.json({ error: indexProblem }, { status: 400 });
+    }
+    if (!SHA256_HEX.test(clientHash)) {
+      return NextResponse.json({ error: 'A SHA-256 hash computed in the browser is required.' }, { status: 400 });
     }
 
-    if (file.type !== 'application/pdf') {
-      return NextResponse.json({ error: 'Only PDF files are allowed.' }, { status: 400 });
+    const incomingMatch = incomingPath.match(new RegExp(`^${INCOMING_PREFIX}/${user.id}/(${UUID})\\.pdf$`));
+    if (!UPLOAD_BUCKETS.includes(bucket) || !incomingMatch) {
+      return NextResponse.json({ error: 'Invalid upload reference.' }, { status: 400 });
     }
 
-    const sha256Hash = sha256Hex(await file.arrayBuffer());
-
-    const safeName = file.name.replace(/\s+/g, '-').toLowerCase();
-    const filePath = caseId
-      ? `${user.id}/${caseId}/${Date.now()}-${safeName}`
-      : `${user.id}/${Date.now()}-${safeName}`;
-
-    const uploadResult = await uploadWithFallbackBuckets(supabaseAdmin, filePath, file);
-    if (uploadResult.error || !uploadResult.bucket) {
-      return NextResponse.json({ error: uploadResult.error || 'Upload failed.' }, { status: 400 });
+    if (caseId) {
+      // Read through the caller's own RLS-scoped client: a case they cannot see is treated as missing.
+      const { data: caseRow } = await createSupabaseServerClient()
+        .from('cases').select('id').eq('id', caseId).maybeSingle();
+      if (!caseRow) {
+        await supabaseAdmin.storage.from(bucket).remove([incomingPath]);
+        return NextResponse.json({ error: 'Case not found.' }, { status: 404 });
+      }
     }
 
-    const orgId = profile.org_id;
+    const { data: stored, error: downloadError } = await supabaseAdmin.storage.from(bucket).download(incomingPath);
+    if (downloadError || !stored) {
+      return NextResponse.json({ error: 'Uploaded file was not found. Please upload again.' }, { status: 400 });
+    }
+
+    const bytes = Buffer.from(await stored.arrayBuffer());
+    const rejectUpload = async (status, error) => {
+      await supabaseAdmin.storage.from(bucket).remove([incomingPath]);
+      return NextResponse.json({ error }, { status });
+    };
+
+    if (bytes.length > MAX_UPLOAD_BYTES) {
+      return rejectUpload(413, `Files larger than ${MAX_UPLOAD_LABEL} are not allowed.`);
+    }
+    if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-') {
+      return rejectUpload(400, 'Only PDF files are allowed.');
+    }
+
+    const sha256Hash = sha256Hex(bytes);
+    if (sha256Hash !== clientHash) {
+      return rejectUpload(409, 'Integrity breach: the file received by the server does not match the SHA-256 computed in your browser. Nothing was saved.');
+    }
+
+    const fileId = incomingMatch[1];
+    const filePath = caseId ? `${user.id}/${caseId}/${fileId}.pdf` : `${user.id}/${fileId}.pdf`;
+    const { error: moveError } = await supabaseAdmin.storage.from(bucket).move(incomingPath, filePath);
+    if (moveError) {
+      return rejectUpload(500, `Unable to store the verified file: ${moveError.message}`);
+    }
 
     const insertResult = await insertDocumentRecord(supabaseAdmin, {
       caseId,
       userId: user.id,
-      orgId,
+      orgId: profile.org_id,
       title,
-      fileName: safeName,
       filePath,
-      bucket: uploadResult.bucket,
+      bucket,
       sha256Hash,
+      caseNumber,
+      tags,
     });
 
     if (insertResult.error || !insertResult.data) {
+      await supabaseAdmin.storage.from(bucket).remove([filePath]);
       return NextResponse.json({ error: insertResult.error || 'Unable to save document.' }, { status: 400 });
     }
 
@@ -177,24 +205,23 @@ export async function POST(request) {
         },
         { onConflict: 'document_id,user_id' }
       );
-    }
 
-    if (documentId) {
       await logDocumentAuditEvent({
         documentId,
         actorUserId: user.id,
         eventType: 'document_uploaded',
-        details: { title, role: profile.role },
+        details: { title, case_number: caseNumber, tags, role: profile.role, sha256_hash: sha256Hash, hash_verified: 'browser_and_server', size_bytes: bytes.length },
       }).catch((failure) => console.error('[audit] Unable to record draft creation:', failure));
     }
 
     revalidatePath('/cases');
     revalidatePath('/dashboard');
+    if (caseId) revalidatePath(`/cases/${caseId}`);
 
     return NextResponse.json({
       success: true,
       document: insertResult.data,
-      bucket: uploadResult.bucket,
+      bucket,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected upload error.';

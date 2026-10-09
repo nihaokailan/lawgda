@@ -4,6 +4,9 @@ import LawgdaLogo from '../../../components/LawgdaLogo';
 import AuditTrailList from '../../../components/AuditTrailList';
 import { enrichAuditEntries } from '../../../../lib/auditPresentation';
 import WorkspaceShell from '../../../components/WorkspaceShell';
+import FileDocumentButton from '../../../components/FileDocumentButton';
+import RealtimeRefresh from '../../../components/RealtimeRefresh';
+import { ROLES } from '../../../../lib/rbac';
 import { requireDocumentAccess } from '../../../../lib/authGuard';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import shared from '../../../../styles/shared.module.css';
@@ -86,6 +89,7 @@ export default async function SignedDocumentPage({ params }: { params: { documen
 
   return (
     <WorkspaceShell profile={profile} title="Signed Document" subtitle="Read-only signed document record and audit history.">
+      <RealtimeRefresh filter={`id=eq.${documentId}`} />
       <header
         style={{
           background: 'linear-gradient(135deg, #6a0f1a 0%, #8f1b2b 100%)',
@@ -101,7 +105,13 @@ export default async function SignedDocumentPage({ params }: { params: { documen
         }}
       >
         <LawgdaLogo color="#ffffff" textColor="#ffffff" size={36} />
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          {profile.role === ROLES.LAWYER && document.status === 'Signed' && (
+            <FileDocumentButton
+              documentId={documentId}
+              style={{ background: '#fff', color: '#6a0f1a', border: 'none', borderRadius: '999px', padding: '0.35rem 0.85rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+            />
+          )}
           <span style={{ background: 'rgba(255,255,255,0.18)', borderRadius: '999px', padding: '0.35rem 0.85rem', fontWeight: 700, fontSize: '0.85rem' }}>
             {signedPath ? '✓ Electronically signed' : 'Awaiting signature'}
           </span>

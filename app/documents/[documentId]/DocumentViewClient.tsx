@@ -37,7 +37,7 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
 
     async function loadPreview() {
       try {
-        const response = await fetch(`/api/documents/${document.id}/download${downloadVersion}`);
+        const response = await fetch(`/api/documents/${document.id}/download${downloadVersion ? `${downloadVersion}&check=1` : '?check=1'}`);
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload.error || 'Unable to load PDF preview.');
@@ -185,7 +185,9 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
 
       {/* Verification Component */}
       {expectedHash && (
-        <DocumentVerifier 
+        <DocumentVerifier
+          documentId={document.id}
+          version={hasSignedVersion ? 'signed' : 'original'}
           documentTitle={document.title}
           storedHash={expectedHash}
           hashLabel={hashLabel}

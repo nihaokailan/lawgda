@@ -3,6 +3,9 @@ import { requireDocumentAccess } from '../../../lib/authGuard';
 import { ROLE_LABELS } from '../../../lib/roles';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import CaseDetailClient from './CaseDetailClient';
+import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
+import { enrichAuditEntries } from '../../../lib/auditPresentation';
+import RealtimeRefresh from '../../components/RealtimeRefresh';
 
 type RawDocument = {
   id: string;
@@ -30,7 +33,6 @@ function normalizeStatus(status: string | null): 'Drafting' | 'Pending' | 'Signe
 }
 
 async function insertViewLogs(
-  supabase: ReturnType<typeof createSupabaseServerClient>,
   userId: string,
   caseId: string,
   documentIds: string[]
@@ -48,7 +50,8 @@ async function insertViewLogs(
     },
   }));
 
-  await supabase.from('audit_logs').insert(payload);
+  // Written with the service role: browser sessions cannot write audit rows (migration 021).
+  await getSupabaseAdmin().from('audit_logs').insert(payload);
 }
 
 export default async function CaseDetailPage({ params }: { params: { caseId: string } }) {
@@ -108,11 +111,29 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       ownerId: (document.owner_id || document.user_id || '') as string,
     }));
 
+  // Access to each document was checked above, so the case-wide activity feed
+  // is read with the service role and limited to those visible documents.
+  const titleById = new Map(visibleDocuments.map((document) => [document.id, document.title]));
+  let activity: Awaited<ReturnType<typeof enrichAuditEntries>> = [];
+  if (titleById.size > 0) {
+    const admin = getSupabaseAdmin();
+    const { data: auditRows } = await admin
+      .from('audit_logs')
+      .select('id,document_id,actor_user_id,event_type,details,created_at')
+      .in('document_id', [...titleById.keys()])
+      .order('created_at', { ascending: false })
+      .limit(30);
+    activity = (await enrichAuditEntries(admin, auditRows ?? [])).map((entry, index) => ({
+      ...entry,
+      lines: [`Document: ${titleById.get(String(auditRows?.[index]?.document_id)) ?? 'Unknown'}`, ...entry.lines],
+    }));
+  }
+
   if (!isOwner) {
     const viewedDocIds = visibleDocuments
       .map((document) => document.id)
       .filter((id) => id);
-    await insertViewLogs(supabase, user.id, caseId, viewedDocIds);
+    await insertViewLogs(user.id, caseId, viewedDocIds);
   }
 
   const caseTitle = (caseRow?.title as string | undefined) || 'Shared Case';
@@ -123,11 +144,13 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       title="Case Detail"
       subtitle={`Role: ${ROLE_LABELS[profile.role] ?? profile.role}.`}
     >
+      <RealtimeRefresh filter={`case_id=eq.${caseId}`} />
       <CaseDetailClient
         caseId={caseId}
         caseTitle={caseTitle}
         isOwner={isOwner}
         documents={visibleDocuments}
+        activity={activity}
       />
     </WorkspaceShell>
   );
