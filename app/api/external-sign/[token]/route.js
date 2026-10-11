@@ -11,6 +11,7 @@ import { ensureExternalSignerKey } from '../../../../lib/externalSignerKeys';
 import { signWithWrappedKey, signRsaDigestWithPrivateKey, RSA_SIGNATURE_SCHEME } from '../../../../lib/keyWrapping';
 import { extractKeyAndCertFromP12 } from '../../../../lib/pkcs12';
 import { sendSigningInvitationEmail } from '../../../../lib/email';
+import { getPublicSiteUrl } from '../../../../lib/siteUrl';
 import { randomBytes } from 'node:crypto';
 import QRCode from 'qrcode';
 
@@ -267,7 +268,14 @@ export async function POST(request, { params }) {
   const auditToken = allSignersCompleted
     ? String(metadata.audit_token || `av_${randomBytes(32).toString('base64url')}`)
     : '';
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || new URL(request.url).origin;
+  // Resolved before anything is saved: the QR code and the next signer's
+  // invitation must point at the deployed site, never localhost.
+  let baseUrl;
+  try {
+    baseUrl = getPublicSiteUrl(request);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   const auditUrl = auditToken ? `${baseUrl}/verify/${encodeURIComponent(auditToken)}` : '';
   let signedPdf;
   try {
@@ -454,7 +462,6 @@ export async function POST(request, { params }) {
       .eq('id', nextSigner.id);
 
     if (!tokenError) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || new URL(request.url).origin;
       const invitation = await sendSigningInvitationEmail({
         to: nextSigner.signer_email,
         signerName: nextSigner.signer_name,

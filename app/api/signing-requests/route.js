@@ -9,6 +9,7 @@ import { requireWorkspaceMember, rbacErrorResponse } from '../../../lib/rbacMidd
 import { findStaffEmails, STAFF_SIGNER_MESSAGE } from '../../../lib/staffSigners';
 import { sendSigningInvitationEmail } from '../../../lib/email';
 import { grantLawyerSignerAccess } from '../../../lib/sharedDocuments';
+import { getPublicSiteUrl } from '../../../lib/siteUrl';
 
 function addDays(days) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -57,6 +58,14 @@ export async function POST(request) {
     ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
   } catch (error) {
     return rbacErrorResponse(error);
+  }
+
+  // Resolve before anything is saved: an invitation must never link to localhost.
+  let baseUrl;
+  try {
+    baseUrl = getPublicSiteUrl(request);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   const body = await request.json();
@@ -147,7 +156,6 @@ export async function POST(request) {
   // A Lawyer assigned as signer sees the document in their own list and dashboard.
   await grantLawyerSignerAccess(supabaseAdmin, { documentId, orgId: profile.org_id, signerEmail });
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'http://localhost:3000';
   const signingLink = `${baseUrl}/sign/${encodeURIComponent(token)}`;
 
   const { data: earlierRequests } = await supabaseAdmin
