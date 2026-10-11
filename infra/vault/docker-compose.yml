@@ -1,0 +1,36 @@
+# Lawgda Key Management Server: HashiCorp Vault (pre-built image) behind
+# Caddy, which provides HTTPS automatically. Only Caddy is reachable from
+# the internet (ports 80/443); Vault's port 8200 stays inside Docker.
+services:
+  vault:
+    image: hashicorp/vault:1.18.3
+    container_name: vault
+    command: server
+    cap_add: [IPC_LOCK]
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200          # for the `vault` CLI inside the container
+      VAULT_API_ADDR: https://${VAULT_HOST}
+    volumes:
+      - ./config:/vault/config
+      - vault-file:/vault/file                   # encrypted storage (sealed at rest)
+      - vault-logs:/vault/logs                   # audit log
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8.4
+    container_name: caddy
+    ports: ["80:80", "443:443"]
+    environment:
+      VAULT_HOST: ${VAULT_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data                         # HTTPS certificates
+      - caddy-config:/config
+    depends_on: [vault]
+    restart: unless-stopped
+
+volumes:
+  vault-file: {}
+  vault-logs: {}
+  caddy-data: {}
+  caddy-config: {}

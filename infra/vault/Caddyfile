@@ -1,0 +1,5 @@
+# Caddy obtains and renews a Let's Encrypt certificate for VAULT_HOST
+# (e.g. 34-82-10-5.sslip.io) and forwards requests to Vault.
+{$VAULT_HOST} {
+	reverse_proxy vault:8200
+}

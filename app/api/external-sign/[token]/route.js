@@ -307,7 +307,7 @@ export async function POST(request, { params }) {
       const userKey = signingRequest.internal_signer_id
         ? await ensureUserSigningKey(supabaseAdmin, signingRequest.internal_signer_id)
         : await ensureExternalSignerKey(supabaseAdmin, providedEmail);
-      cryptographicSignature = signWithWrappedKey(userKey.wrappedPrivateKey, Buffer.from(postSignHash, 'hex'));
+      cryptographicSignature = await signWithWrappedKey(userKey.wrappedPrivateKey, Buffer.from(postSignHash, 'hex'));
       signingPublicKey = userKey.publicKeyPem;
       signatureCovers = 'post_sign_hash';
     } catch (keyError) {

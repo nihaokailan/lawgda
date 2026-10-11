@@ -4,11 +4,14 @@ import { readFile } from 'node:fs/promises';
 import forge from 'node-forge';
 
 // Load the app's ESM helpers without changing the Next.js package type.
+const asDataUrl = (source) => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 async function loadHelper(path) {
+  const vaultSource = await readFile(new URL('../lib/vault.js', import.meta.url), 'utf8');
   const source = (await readFile(new URL(path, import.meta.url), 'utf8'))
     .replace("'node-forge'", JSON.stringify(import.meta.resolve('node-forge')))
-    .replace("'pdf-lib'", JSON.stringify(import.meta.resolve('pdf-lib')));
-  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+    .replace("'pdf-lib'", JSON.stringify(import.meta.resolve('pdf-lib')))
+    .replace("'./vault'", JSON.stringify(asDataUrl(vaultSource)));
+  return import(asDataUrl(source));
 }
 const { extractKeyAndCertFromP12 } = await loadHelper('../lib/pkcs12.js');
 const { signRsaDigestWithPrivateKey, verifyRsaDigestWithCertificate, LEGACY_RSA_SIGNATURE_SCHEME } = await loadHelper('../lib/keyWrapping.js');

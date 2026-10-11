@@ -20,11 +20,14 @@ const TRIALS = Number(args.trials || 200);
 const PERF_RUNS = Number(args.runs || 15);
 
 // Load the app's ESM helpers without changing the Next.js package type.
+const asDataUrl = (source) => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 async function loadHelper(path) {
+  const vaultSource = await readFile(new URL('../lib/vault.js', import.meta.url), 'utf8');
   const source = (await readFile(new URL(path, import.meta.url), 'utf8'))
     .replace("'node-forge'", JSON.stringify(import.meta.resolve('node-forge')))
-    .replace("'pdf-lib'", JSON.stringify(import.meta.resolve('pdf-lib')));
-  return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
+    .replace("'pdf-lib'", JSON.stringify(import.meta.resolve('pdf-lib')))
+    .replace("'./vault'", JSON.stringify(asDataUrl(vaultSource)));
+  return import(asDataUrl(source));
 }
 
 const { sha256Hex } = await loadHelper('../lib/documentHash.js');
@@ -33,10 +36,15 @@ const { verifyAuditLogsChain } = await loadHelper('../lib/auditChainVerify.js');
 const { addElectronicSignature } = await loadHelper('../lib/signedPdf.js');
 const {
   signRsaDigestWithPrivateKey, verifyRsaDigestWithCertificate,
-  wrapPrivateKey, unwrapPrivateKey, signWithWrappedKey, verifyWithPublicKeyPem, generateSigningKeyPair,
+  wrapWithLocalKek, unwrapWithLocalKek, signWithWrappedKey, verifyWithPublicKeyPem, generateSigningKeyPair,
 } = await loadHelper('../lib/keyWrapping.js');
+const { isVaultConfigured, vaultEncrypt, vaultDecrypt } = await import(asDataUrl(await readFile(new URL('../lib/vault.js', import.meta.url), 'utf8')));
 
 process.env.KEY_WRAPPING_MASTER_KEY ||= randomBytes(32).toString('base64');
+// Offline sections use the local AES-256 KEK; section 6 tests the Vault KMS when configured.
+const VAULT_ON = isVaultConfigured();
+const savedVaultAddr = process.env.VAULT_ADDR;
+delete process.env.VAULT_ADDR;
 
 const results = { generatedAt: new Date().toISOString(), trials: TRIALS, perfRuns: PERF_RUNS, sections: {} };
 const pct = (part, whole) => (whole ? (100 * part / whole) : 0);
@@ -180,7 +188,7 @@ let rsaValid = 0; let rsaForgedRejected = 0;
 let edValid = 0; let edForgedRejected = 0;
 let wrapsOpaque = 0; let wrapsRoundTrip = 0; let tamperedWrapsRejected = 0;
 const { publicKeyPem: edPublic, privateKeyDer: edPrivate } = generateSigningKeyPair();
-const edWrapped = wrapPrivateKey(edPrivate);
+const edWrapped = wrapWithLocalKek(edPrivate);
 for (let trial = 0; trial < TRIALS; trial += 1) {
   const digest = createHash('sha256').update(randomBytes(64)).digest();
   const otherDigest = createHash('sha256').update(randomBytes(64)).digest();
@@ -189,16 +197,16 @@ for (let trial = 0; trial < TRIALS; trial += 1) {
   if (verifyRsaDigestWithCertificate(certificatePem, digest, rsaSignature)) rsaValid += 1;
   if (!verifyRsaDigestWithCertificate(certificatePem, otherDigest, rsaSignature)) rsaForgedRejected += 1;
 
-  const edSignature = signWithWrappedKey(edWrapped, digest);
+  const edSignature = await signWithWrappedKey(edWrapped, digest);
   if (verifyWithPublicKeyPem(edPublic, digest, edSignature)) edValid += 1;
   if (!verifyWithPublicKeyPem(edPublic, otherDigest, edSignature)) edForgedRejected += 1;
 
-  const wrapped = wrapPrivateKey(rsaDer);
+  const wrapped = wrapWithLocalKek(rsaDer);
   if (!wrapped.includes(rsaDer.toString('base64')) && !wrapped.includes('PRIVATE KEY')) wrapsOpaque += 1;
-  if (unwrapPrivateKey(wrapped).equals(rsaDer)) wrapsRoundTrip += 1;
+  if (unwrapWithLocalKek(wrapped).equals(rsaDer)) wrapsRoundTrip += 1;
   const parts = wrapped.split(':');
   const ciphertext = Buffer.from(parts[3], 'base64'); ciphertext[0] ^= 1; parts[3] = ciphertext.toString('base64');
-  try { unwrapPrivateKey(parts.join(':')); } catch { tamperedWrapsRejected += 1; }
+  try { unwrapWithLocalKek(parts.join(':')); } catch { tamperedWrapsRejected += 1; }
 }
 results.sections.cryptography = [
   { check: 'RSA (DICT .p12) signatures verify', rate: pct(rsaValid, TRIALS) },
@@ -238,7 +246,7 @@ for (const megabytes of [1, 5, 10]) {
 }
 const digest = createHash('sha256').update(randomBytes(1024)).digest();
 perfRows.push({ operation: 'RSA-2048 signature (DICT path)', medianMs: time(() => signRsaDigestWithPrivateKey(rsaDer, digest)) });
-perfRows.push({ operation: 'Ed25519 unwrap + sign (standard path)', medianMs: time(() => signWithWrappedKey(edWrapped, digest)) });
+perfRows.push({ operation: 'Ed25519 unwrap + sign (local KEK)', medianMs: await timeAsync(() => signWithWrappedKey(edWrapped, digest)) });
 const tenPagePdf = await samplePdf(10);
 perfRows.push({
   operation: 'Stamp signature page onto a 10-page PDF',
@@ -247,6 +255,35 @@ perfRows.push({
 const longChain = buildChain(500);
 perfRows.push({ operation: 'Verify a 500-event audit chain', medianMs: time(() => verifyAuditLogsChain(longChain)) });
 results.sections.performance = perfRows;
+
+// ---------------------------------------------------------------------------
+// 6. Key Management Server — HashiCorp Vault (Objective 6), when configured
+// ---------------------------------------------------------------------------
+if (VAULT_ON) {
+  process.env.VAULT_ADDR = savedVaultAddr;
+  const vaultRuns = Math.min(TRIALS, 20);
+  let opaque = 0; let roundTrip = 0; let tamperRejected = 0;
+  for (let trial = 0; trial < vaultRuns; trial += 1) {
+    const keyMaterial = randomBytes(48);
+    const ciphertext = await vaultEncrypt(keyMaterial);
+    if (ciphertext.startsWith('vault:') && !ciphertext.includes(keyMaterial.toString('base64'))) opaque += 1;
+    if ((await vaultDecrypt(ciphertext)).equals(keyMaterial)) roundTrip += 1;
+    const body = Buffer.from(ciphertext.split(':')[2], 'base64'); body[body.length - 1] ^= 1;
+    try { await vaultDecrypt(`vault:v1:${body.toString('base64')}`); } catch { tamperRejected += 1; }
+  }
+  results.sections.vault = {
+    trials: vaultRuns,
+    checks: [
+      { check: 'Key stored only as Vault ciphertext (vault:v1:…)', rate: pct(opaque, vaultRuns) },
+      { check: 'Vault unwraps to the exact original key', rate: pct(roundTrip, vaultRuns) },
+      { check: 'Tampered Vault ciphertext rejected', rate: pct(tamperRejected, vaultRuns) },
+    ],
+  };
+  const sample = randomBytes(48);
+  perfRows.push({ operation: 'Vault wrap (encrypt) round trip', medianMs: await timeAsync(() => vaultEncrypt(sample), 5) });
+  const sampleCiphertext = await vaultEncrypt(sample);
+  perfRows.push({ operation: 'Vault unwrap (decrypt) round trip', medianMs: await timeAsync(() => vaultDecrypt(sampleCiphertext), 5) });
+}
 
 // ---------------------------------------------------------------------------
 // Report
@@ -270,6 +307,12 @@ console.log('## 4. Signatures and key protection\n');
 console.log(table(['Check', 'Success rate'], results.sections.cryptography.map((row) => [row.check, fmtPct(row.rate)])));
 console.log('\n## 5. Performance (median time)\n');
 console.log(table(['Operation', 'Median (ms)'], perfRows.map((row) => [row.operation, row.medianMs.toFixed(2)])));
+if (results.sections.vault) {
+  console.log('\n## 6. Key Management Server (HashiCorp Vault)\n');
+  console.log(table(['Check', 'Success rate'], results.sections.vault.checks.map((row) => [row.check, fmtPct(row.rate)])));
+} else {
+  console.log('\n## 6. Key Management Server (HashiCorp Vault)\n\nSkipped — set VAULT_ADDR, VAULT_ROLE_ID and VAULT_SECRET_ID to include it.');
+}
 
 if (args.json) {
   await writeFile(String(args.json), JSON.stringify(results, null, 2));
@@ -283,5 +326,6 @@ const failures = [
   chainRows.some((row) => row.accuracy < 100),
   results.sections.auditChain.intactChainsVerified < 100,
   results.sections.cryptography.some((row) => row.rate < 100),
+  results.sections.vault?.checks.some((row) => row.rate < 100),
 ].filter(Boolean).length;
 process.exitCode = failures ? 1 : 0;
