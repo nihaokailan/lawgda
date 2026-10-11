@@ -35,7 +35,7 @@ const { classifyFileHash } = await loadHelper('../lib/publicVerification.js');
 const { verifyAuditLogsChain } = await loadHelper('../lib/auditChainVerify.js');
 const { addElectronicSignature } = await loadHelper('../lib/signedPdf.js');
 const {
-  signRsaDigestWithPrivateKey, verifyRsaDigestWithCertificate,
+  signRsaDigestWithPrivateKey, signRsaDigestWithWrappedKey, wrapPrivateKey, verifyRsaDigestWithCertificate,
   wrapWithLocalKek, unwrapWithLocalKek, signWithWrappedKey, verifyWithPublicKeyPem, generateSigningKeyPair,
 } = await loadHelper('../lib/keyWrapping.js');
 const { isVaultConfigured, vaultEncrypt, vaultDecrypt } = await import(asDataUrl(await readFile(new URL('../lib/vault.js', import.meta.url), 'utf8')));
@@ -271,12 +271,26 @@ if (VAULT_ON) {
     const body = Buffer.from(ciphertext.split(':')[2], 'base64'); body[body.length - 1] ^= 1;
     try { await vaultDecrypt(`vault:v1:${body.toString('base64')}`); } catch { tamperRejected += 1; }
   }
+  // Both signing paths with their real keys, exactly as the signing route does:
+  // wrap through Vault, then sign by unwrapping through Vault.
+  const certificateWrapped = await wrapPrivateKey(rsaDer);
+  const standardWrapped = await wrapPrivateKey(edPrivate);
+  let certificateSigned = 0; let standardSigned = 0;
+  for (let trial = 0; trial < vaultRuns; trial += 1) {
+    const digest = createHash('sha256').update(randomBytes(64)).digest();
+    const rsaSignature = await signRsaDigestWithWrappedKey(certificateWrapped, digest);
+    if (certificateWrapped.startsWith('vault:') && verifyRsaDigestWithCertificate(certificatePem, digest, rsaSignature)) certificateSigned += 1;
+    const edSignature = await signWithWrappedKey(standardWrapped, digest);
+    if (standardWrapped.startsWith('vault:') && verifyWithPublicKeyPem(edPublic, digest, edSignature)) standardSigned += 1;
+  }
   results.sections.vault = {
     trials: vaultRuns,
     checks: [
       { check: 'Key stored only as Vault ciphertext (vault:v1:…)', rate: pct(opaque, vaultRuns) },
       { check: 'Vault unwraps to the exact original key', rate: pct(roundTrip, vaultRuns) },
       { check: 'Tampered Vault ciphertext rejected', rate: pct(tamperRejected, vaultRuns) },
+      { check: 'Certificate (.p12) RSA key Vault-wrapped, signs and verifies', rate: pct(certificateSigned, vaultRuns) },
+      { check: 'Standard Ed25519 key Vault-wrapped, signs and verifies', rate: pct(standardSigned, vaultRuns) },
     ],
   };
   const sample = randomBytes(48);

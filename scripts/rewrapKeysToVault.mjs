@@ -44,6 +44,7 @@ async function rest(path, init = {}) {
 const tables = [
   { table: 'user_signing_keys', idColumn: 'user_id' },
   { table: 'external_signer_keys', idColumn: 'signer_email' },
+  { table: 'signing_request_certificates', idColumn: 'signing_request_id' },
 ];
 
 let total = 0;

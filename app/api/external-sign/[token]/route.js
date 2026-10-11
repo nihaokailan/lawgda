@@ -8,7 +8,8 @@ import { generateSigningToken, hashSigningToken } from '../../../../lib/signingT
 import { transitionDocumentStatus } from '../../../../lib/documentLifecycle';
 import { ensureUserSigningKey } from '../../../../lib/userSigningKeys';
 import { ensureExternalSignerKey } from '../../../../lib/externalSignerKeys';
-import { signWithWrappedKey, signRsaDigestWithPrivateKey, RSA_SIGNATURE_SCHEME } from '../../../../lib/keyWrapping';
+import { signWithWrappedKey, signRsaDigestWithWrappedKey, wrapPrivateKey, RSA_SIGNATURE_SCHEME } from '../../../../lib/keyWrapping';
+import { VaultError } from '../../../../lib/vault';
 import { extractKeyAndCertFromP12 } from '../../../../lib/pkcs12';
 import { sendSigningInvitationEmail } from '../../../../lib/email';
 import { getPublicSiteUrl } from '../../../../lib/siteUrl';
@@ -247,13 +248,42 @@ export async function POST(request, { params }) {
     signatureName = certificateDetails.holderName;
     certificateSubjectCn = signatureName;
 
+    // The certificate's private key goes into the Key Management Server first:
+    // Vault wraps it, only the ciphertext is stored, and the signature is made
+    // by unwrapping it through Vault — the same custody as standard keys.
+    let wrappedCertificateKey;
     try {
-      certificateSignature = signRsaDigestWithPrivateKey(extracted.privateKeyDer, Buffer.from(preSignHash, 'hex'));
-      certificatePem = extracted.certificatePem;
-    } catch (error) {
-      return NextResponse.json({ error: 'Unable to sign with the private key in this certificate.' }, { status: 400 });
+      wrappedCertificateKey = await wrapPrivateKey(extracted.privateKeyDer);
+    } catch (keyError) {
+      console.error('[signing] Unable to wrap certificate key:', keyError);
+      return NextResponse.json({ error: 'The signing service is temporarily unavailable. Nothing was signed — please try again shortly.' }, { status: 503 });
     } finally {
       extracted.privateKeyDer.fill(0);
+    }
+
+    const { error: certificateStoreError } = await supabaseAdmin
+      .from('signing_request_certificates')
+      .upsert({
+        signing_request_id: signingRequest.id,
+        wrapped_private_key: wrappedCertificateKey,
+        certificate_pem: extracted.certificatePem,
+        subject_cn: certificateSubjectCn,
+      }, { onConflict: 'signing_request_id' });
+    if (certificateStoreError) {
+      return NextResponse.json({ error: `Unable to store the certificate key: ${certificateStoreError.message}` }, { status: 500 });
+    }
+
+    try {
+      certificateSignature = await signRsaDigestWithWrappedKey(wrappedCertificateKey, Buffer.from(preSignHash, 'hex'));
+      certificatePem = extracted.certificatePem;
+    } catch (error) {
+      console.error('[signing] Unable to sign with certificate key:', error);
+      return NextResponse.json(
+        error instanceof VaultError
+          ? { error: 'The signing service is temporarily unavailable. Nothing was signed — please try again shortly.' }
+          : { error: 'Unable to sign with the private key in this certificate.' },
+        { status: error instanceof VaultError ? 503 : 400 }
+      );
     }
   }
 
