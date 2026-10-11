@@ -169,7 +169,13 @@ export default function ExternalSignerPage({ params }) {
   }
 
   async function computeDocumentHash(reviewUrl) {
-    const response = await fetch(reviewUrl);
+    // Hash only a real PDF: hashing an error response would always mismatch.
+    const response = await fetch(reviewUrl, { cache: 'no-store' });
+    const contentType = response.headers.get('content-type') || '';
+    if (!response.ok || !contentType.includes('application/pdf')) {
+      const failure = await readApiPayload(response).catch(() => ({}));
+      throw new Error(failure?.error || `Unable to load the document (HTTP ${response.status}).`);
+    }
     const buffer = await response.arrayBuffer();
     const digest = await crypto.subtle.digest('SHA-256', buffer);
     return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('');
@@ -259,9 +265,9 @@ export default function ExternalSignerPage({ params }) {
     let documentHash = '';
     try {
       documentHash = await computeDocumentHash(payload.document.reviewUrl);
-    } catch {
+    } catch (hashError) {
       setSigning(false);
-      setError('Unable to compute the document hash in your browser. Please try again.');
+      setError(`Unable to compute the document hash in your browser: ${hashError instanceof Error ? hashError.message : 'unknown error'}`);
       return;
     }
 

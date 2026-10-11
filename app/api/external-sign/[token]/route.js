@@ -228,6 +228,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'The document must be hashed in your browser before signing. Please refresh and try again.' }, { status: 400 });
   }
   if (clientDocumentHash !== preSignHash) {
+    console.error('[signing] Browser hash mismatch', { signingRequestId: signingRequest.id, sourcePath, clientDocumentHash, preSignHash, bytes: sourceBytes.byteLength });
     return NextResponse.json({ error: 'The document hash computed in your browser does not match the document on file. Please refresh and try again.' }, { status: 409 });
   }
 
@@ -325,11 +326,13 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'The signing service is temporarily unavailable. Nothing was signed — please try again shortly.' }, { status: 503 });
     }
   }
-  const signedPath = `signed/${document.id}/${signingRequest.signing_order}-${signingRequest.id}-signed.pdf`;
+  // A new object per attempt: overwriting an earlier attempt's file could leave
+  // a stale cached copy that no longer matches the recorded post_sign_hash.
+  const signedPath = `signed/${document.id}/${signingRequest.signing_order}-${signingRequest.id}-${Date.now()}-signed.pdf`;
   const { error: uploadError } = await supabaseAdmin.storage.from(bucket).upload(
     signedPath,
     new Blob([signedPdf], { type: 'application/pdf' }),
-    { contentType: 'application/pdf', upsert: true }
+    { contentType: 'application/pdf', upsert: false }
   );
 
   if (uploadError) {
