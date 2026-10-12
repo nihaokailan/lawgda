@@ -4,6 +4,7 @@ import NextImage from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
+import TopNav from '../../components/TopNav';
 
 async function readApiPayload(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -331,10 +332,16 @@ export default function ExternalSignerPage({ params }) {
 
   return (
     <main className={shell.shell}>
+      <TopNav />
       <div className={shell.content}>
         <div className={shared.pageShell}>
-          <h1 className={shared.pageTitle}>Lawgda</h1>
-          <p className={shared.pageSubtitle}>External signing access</p>
+          <header className={shared.pageActionHeader}>
+            <div>
+              <p className={shared.breadcrumb}>Documents <span aria-hidden="true">/</span> Signature request</p>
+              <h1 className={shared.pageTitle}>External signing access</h1>
+              <p className={shared.pageSubtitle}>Review and complete your requested signature.</p>
+            </div>
+          </header>
 
           <div className={shared.sectionCard}>
             {loading && <p className={shared.helpText}>Loading signing request...</p>}

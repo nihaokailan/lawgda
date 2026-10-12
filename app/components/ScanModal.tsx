@@ -176,8 +176,8 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
       <div className={styles.modalCardLarge}>
         <div className={styles.modalHeader}>
           <h3 className={styles.sectionTitle}>Scan QR Code</h3>
-          <button type="button" className={styles.modalClose} onClick={onClose}>
-            Close
+          <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close QR scanner dialog" title="Close">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
           </button>
         </div>
 

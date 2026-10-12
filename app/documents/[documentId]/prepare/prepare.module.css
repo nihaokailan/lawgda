@@ -14,7 +14,7 @@
 .previewLabel {
   margin: 0 0 0.45rem;
   text-align: center;
-  color: #2f3648;
+  color: var(--muted);
   font-size: 0.76rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -23,24 +23,26 @@
 .previewFrame {
   width: 100%;
   min-height: 72vh;
-  border: 1px solid #dce2ee;
-  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
 }
 
 .previewFallback {
   min-height: 72vh;
-  border: 1px dashed #dce2ee;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #5f6677;
-  background: #fbfcff;
+  color: var(--muted);
+  background: var(--surface-alt);
 }
 
 .sidebarPane {
   width: 320px;
   max-width: 320px;
-  border-left: 1px solid #dde3ef;
+  border-left: 1px solid var(--border);
   padding-left: 0.8rem;
   display: grid;
   gap: 0.65rem;
@@ -49,13 +51,13 @@
 .sidebarTitle {
   margin: 0;
   font-size: 1rem;
-  color: #1b2235;
+  color: var(--text);
 }
 
 .sidebarSubtitle {
   margin: 0;
   font-size: 0.84rem;
-  color: #5f6677;
+  color: var(--muted);
 }
 
 .participantList {
@@ -67,11 +69,12 @@
 }
 
 .participantRow {
-  border: 1px solid #dfe5ef;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   padding: 0.6rem;
   display: grid;
   gap: 0.4rem;
-  background: #fff;
+  background: var(--surface);
 }
 
 .participantRowDragging {
@@ -83,7 +86,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #49526a;
+  color: var(--muted);
   font-size: 0.8rem;
 }
 
@@ -96,8 +99,9 @@
 .dragHandle {
   width: 26px;
   height: 22px;
-  border: 1px solid #d8deea;
-  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -125,9 +129,10 @@
 }
 
 .removeButton {
-  border: 1px solid #d8deea;
-  background: #fff;
-  color: #4c556f;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
   font-size: 0.76rem;
   padding: 0.2rem 0.5rem;
 }
@@ -136,12 +141,14 @@
   display: grid;
   gap: 0.25rem;
   font-size: 0.78rem;
-  color: #42506b;
+  color: var(--text);
 }
 
 .fieldInput {
-  border: 1px solid #d8deea;
-  background: #fff;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   padding: 0.45rem 0.55rem;
   font-size: 0.84rem;
   width: 100%;
@@ -181,7 +188,7 @@
     width: 100%;
     max-width: none;
     border-left: none;
-    border-top: 1px solid #dde3ef;
+    border-top: 1px solid var(--border);
     padding-left: 0;
     padding-top: 0.8rem;
   }

@@ -9,6 +9,7 @@ export default async function AdminRequestPage() {
   return (
     <WorkspaceShell
       profile={profile}
+      breadcrumb="Account"
       title="Request Admin Status"
       subtitle="Submit your organization details to request admin access."
     >

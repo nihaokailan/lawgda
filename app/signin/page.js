@@ -2,8 +2,8 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import shared from '../../styles/shared.module.css';
-import shell from '../../styles/pageShell.module.css';
+import auth from '../../styles/auth.module.css';
+import { getAuthRequestErrorMessage } from '../../lib/authError';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 
 // A recovery code (and its PKCE verifier) can be exchanged only once. React
@@ -102,20 +102,26 @@ function SignInPageContent() {
     setLoading(true);
     setError(false);
     setMessage('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setLoading(false);
+        setError(true);
+        setMessage(
+          error.message.includes('email not confirmed')
+            ? 'Please confirm your email before signing in. Check your inbox for the confirmation link.'
+            : getAuthRequestErrorMessage(error)
+        );
+        return;
+      }
+
+      setLoading(false);
+      window.location.replace('/dashboard');
+    } catch (signInError) {
       setLoading(false);
       setError(true);
-      setMessage(
-        error.message.includes('email not confirmed')
-          ? 'Please confirm your email before signing in. Check your inbox for the confirmation link.'
-          : error.message
-      );
-      return;
+      setMessage(getAuthRequestErrorMessage(signInError));
     }
-
-    setLoading(false);
-    window.location.replace('/dashboard');
   }
 
   async function handlePasswordReset() {
@@ -183,100 +189,98 @@ function SignInPageContent() {
   }
 
   return (
-    <main className={`${shell.shell} ${shell.signinShell}`}>
-      <div className={shell.content}>
-        <div className={shared.pageShell}>
-          <header className={shared.topNav}>
-            <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
-              <span className={shared.topNavBrandName}>LAWGDA</span>
-              <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
-            </Link>
-            <Link href="/landing" className={shared.topNavLink}>
-              &larr; Go Back
-            </Link>
-          </header>
-          <h1 className={shared.pageTitle}>Sign In</h1>
-          <p className={shared.pageSubtitle}>Access your secure document workspace and evidence tracking dashboard.</p>
-          <div className={shared.sectionCard}>
-            <form onSubmit={handleSignIn} className={shared.formGrid}>
-              <label className={shared.fieldLabel}>
-                Email
-                <input className={shared.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </label>
-              <label className={shared.fieldLabel}>
-                Password
-                <div className={shared.passwordInputWrap}>
-                  <input
-                    className={`${shared.input} ${shared.passwordInput}`}
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className={shared.passwordToggle}
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </label>
-              <button type="button" className={shared.textButton} onClick={handlePasswordReset} disabled={resetLoading}>
-                {resetLoading ? 'Sending reset link...' : 'Forgot password?'}
-              </button>
-              <button type="submit" className={shared.button} disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
-            </form>
-
-            {recoveryMode && (
-              <div className={shared.resetPanel}>
-                <h2 className={shared.resetTitle}>Reset your password</h2>
-                <label className={shared.fieldLabel}>
-                  New password
-                  <div className={shared.passwordInputWrap}>
-                    <input
-                      className={`${shared.input} ${shared.passwordInput}`}
-                      type={showPassword ? 'text' : 'password'}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter a new password"
-                      minLength={6}
-                    />
-                  </div>
-                </label>
-                <label className={shared.fieldLabel}>
-                  Confirm new password
-                  <div className={shared.passwordInputWrap}>
-                    <input
-                      className={`${shared.input} ${shared.passwordInput}`}
-                      type={showPassword ? 'text' : 'password'}
-                      value={confirmNewPassword}
-                      onChange={(e) => setConfirmNewPassword(e.target.value)}
-                      placeholder="Confirm your new password"
-                      minLength={6}
-                    />
-                  </div>
-                </label>
-                <button type="button" className={shared.button} onClick={handlePasswordUpdate} disabled={passwordUpdateLoading}>
-                  {passwordUpdateLoading ? 'Updating password...' : 'Update password'}
+    <main className={auth.page}>
+      <section className={auth.card}>
+        <header className={auth.topNav}>
+          <Link href="/landing" className={auth.brandLink} aria-label="Go to the Lawgda landing page">
+            <span className={auth.brandName}>LAWGDA</span>
+            <span className={auth.tagline}>Secure Electronic Evidence</span>
+          </Link>
+          <Link href="/landing" className={auth.backLink}>
+            &larr; Go Back
+          </Link>
+        </header>
+        <div className={auth.content}>
+          <h1 className={auth.title}>Sign In</h1>
+          <p className={auth.subtitle}>Access your secure document workspace and evidence tracking dashboard.</p>
+          <form onSubmit={handleSignIn} className={auth.form}>
+            <label className={auth.field}>
+              Email
+              <input className={auth.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <label className={auth.field}>
+              Password
+              <div className={auth.inputWrap}>
+                <input
+                  className={`${auth.input} ${auth.passwordInput}`}
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className={auth.passwordToggle}
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
-            )}
+            </label>
+            <button type="button" className={auth.textButton} onClick={handlePasswordReset} disabled={resetLoading}>
+              {resetLoading ? 'Sending reset link...' : 'Forgot password?'}
+            </button>
+            <button type="submit" className={auth.primaryButton} disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
+          </form>
 
-            {resetRequested && !recoveryMode && !recoveryChecking && (
-              <p className={shared.helpText}>The password form will appear after you open the reset link from your email.</p>
-            )}
+          {recoveryMode && (
+            <div className={auth.recoveryPanel}>
+              <h2 className={auth.recoveryTitle}>Reset your password</h2>
+              <label className={auth.field}>
+                New password
+                <div className={auth.inputWrap}>
+                  <input
+                    className={`${auth.input} ${auth.passwordInput}`}
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter a new password"
+                    minLength={6}
+                  />
+                </div>
+              </label>
+              <label className={auth.field}>
+                Confirm new password
+                <div className={auth.inputWrap}>
+                  <input
+                    className={`${auth.input} ${auth.passwordInput}`}
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="Confirm your new password"
+                    minLength={6}
+                  />
+                </div>
+              </label>
+              <button type="button" className={auth.primaryButton} onClick={handlePasswordUpdate} disabled={passwordUpdateLoading}>
+                {passwordUpdateLoading ? 'Updating password...' : 'Update password'}
+              </button>
+            </div>
+          )}
 
-            {message && (
-              <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>
-            )}
-            <p className={shared.helpText} style={{ marginTop: '1rem' }}>
-              Don&apos;t have an account? <Link href="/signup" className={shared.linkButton}>Create one</Link>
-            </p>
-          </div>
+          {resetRequested && !recoveryMode && !recoveryChecking && (
+            <p className={auth.helperText}>The password form will appear after you open the reset link from your email.</p>
+          )}
+
+          {message && (
+            <p className={`${auth.message} ${error ? auth.messageError : auth.messageSuccess}`}>{message}</p>
+          )}
+          <p className={auth.footerText}>
+            Don&apos;t have an account? <Link href="/signup" className={auth.footerLink}>Create one</Link>
+          </p>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

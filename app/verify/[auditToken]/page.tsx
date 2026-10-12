@@ -8,6 +8,7 @@ import { verifyWithPublicKeyPem, verifyRsaDigestWithCertificate, LEGACY_RSA_SIGN
 import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
 import PublicFileCheck from '../../components/PublicFileCheck';
+import TopNav from '../../components/TopNav';
 
 function getMetadata(value: unknown) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -45,10 +46,16 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
 
   return (
     <main className={shell.shell}>
+      <TopNav />
       <div className={shell.content}>
         <div className={shared.pageShell}>
-          <h1 className={shared.pageTitle} style={{ fontSize: 'clamp(1.75rem, 5vw, 3rem)' }}>Document Audit Trail</h1>
-          <p className={shared.pageSubtitle}>{String(document.title || document.filename || 'Signed document')}</p>
+          <header className={shared.pageActionHeader}>
+            <div>
+              <p className={shared.breadcrumb}>Verification <span aria-hidden="true">/</span> Audit trail</p>
+              <h1 className={shared.pageTitle}>Document Audit Trail</h1>
+              <p className={shared.pageSubtitle}>{String(document.title || document.filename || 'Signed document')}</p>
+            </div>
+          </header>
           <section className={shared.sectionCard} style={{ marginBottom: '1rem' }}>
             <h2 className={shared.cardTitle}>Audit chain integrity</h2>
             <p role="status" style={{ color: integrity === false ? '#991b1b' : integrity === true ? '#047857' : '#92400e', fontWeight: 700 }}>

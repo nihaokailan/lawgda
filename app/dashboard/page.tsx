@@ -7,6 +7,7 @@ import RealtimeRefresh from '../components/RealtimeRefresh';
 import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
 import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
 import { loadMySigningTurns } from '../../lib/signingTurn';
+import { auditEventLabel } from '../../lib/auditEventLabel';
 
 type DocStatus = 'Drafting' | 'Pending' | 'Signed' | 'Filed';
 
@@ -16,6 +17,16 @@ type DashboardDocument = {
   status: DocStatus;
   sha256Hash: string | null;
   createdAt: string | null;
+  myAction?: 'sign' | 'waiting' | null;
+};
+
+type DashboardActivity = {
+  id: string;
+  documentId: string;
+  documentTitle: string;
+  eventType: string;
+  label: string;
+  createdAt: string;
 };
 
 function normalizeStatus(status: unknown): DocStatus {
@@ -161,24 +172,75 @@ async function loadDashboardData(userId: string, orgId: string | null, email: st
     metrics[normalizeStatus(record.status)] += 1;
   });
 
-  return { metrics, recentDocuments };
+  const documentTitles = new Map(
+    recentDocuments.filter((document) => document.id).map((document) => [document.id as string, document.title])
+  );
+  const documentIds = [...documentTitles.keys()];
+  let activity: DashboardActivity[] = [];
+  let activityUnavailable = false;
+
+  if (documentIds.length > 0) {
+    const [documentEvents, signingEvents] = await Promise.all([
+      supabaseAdmin
+        .from('audit_logs')
+        .select('id,document_id,event_type,created_at,details')
+        .in('document_id', documentIds)
+        .order('created_at', { ascending: false })
+        .limit(6),
+      supabaseAdmin
+        .from('signing_audit_events')
+        .select('id,document_id,event_type,created_at,details')
+        .in('document_id', documentIds)
+        .order('created_at', { ascending: false })
+        .limit(6),
+    ]);
+
+    if (documentEvents.error || signingEvents.error) {
+      console.error('Unable to load dashboard audit activity.');
+      activityUnavailable = true;
+    } else {
+      activity = [...(documentEvents.data ?? []), ...(signingEvents.data ?? [])]
+        .sort((first, second) => new Date(second.created_at).getTime() - new Date(first.created_at).getTime())
+        .slice(0, 5)
+        .map((event) => ({
+          id: String(event.id),
+          documentId: String(event.document_id),
+          documentTitle: documentTitles.get(String(event.document_id)) ?? 'Document',
+          eventType: String(event.event_type),
+          label: auditEventLabel(event),
+          createdAt: String(event.created_at),
+        }));
+    }
+  }
+
+  return { metrics, recentDocuments, activity, activityUnavailable };
 }
 
 export default async function DashboardPage() {
   const { user, profile } = await requireDocumentAccess();
-  const { metrics, recentDocuments } = await loadDashboardData(user.id, profile.org_id ?? null, user.email ?? null);
+  const { metrics, recentDocuments, activity, activityUnavailable } = await loadDashboardData(
+    user.id,
+    profile.org_id ?? null,
+    user.email ?? null
+  );
+  const userName = getFirstName(profile.full_name, user.email);
 
   return (
     <WorkspaceShell
       profile={profile}
-      title="LAWDGA Dashboard"
-      subtitle={`Welcome back, ${getFirstName(profile.full_name, user.email)}.`}
+      title="Dashboard"
+      subtitle={`Welcome back, ${userName}.`}
+      dashboard
+      accountName={profile.full_name || userName}
+      accountEmail={user.email ?? ''}
     >
       <RealtimeRefresh />
       <DashboardClient
         initialDocuments={recentDocuments}
         initialMetrics={metrics}
-        userName={getFirstName(profile.full_name, user.email)}
+        initialActivity={activity}
+        activityUnavailable={activityUnavailable}
+        userName={userName}
       />
     </WorkspaceShell>
   );

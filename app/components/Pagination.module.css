@@ -7,18 +7,20 @@
 }
 
 .pageButton {
-  border: 1px solid var(--border, #dfe4ef);
-  background: #fff;
-  color: #2f3648;
-  border-radius: 8px;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.84rem;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-control);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
 }
 
 .pageButton:hover:not(:disabled) {
-  background: #f6f8fc;
+  border-color: var(--crimson-light);
+  background: var(--surface-alt);
 }
 
 .pageButton:disabled {
@@ -27,6 +29,6 @@
 }
 
 .pageStatus {
-  font-size: 0.84rem;
-  color: var(--muted, #5f6677);
+  font-size: 0.82rem;
+  color: var(--muted);
 }

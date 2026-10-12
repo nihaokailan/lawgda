@@ -1,6 +1,8 @@
 .shell {
   min-height: 100vh;
-  background: linear-gradient(180deg, var(--crimson) 0%, var(--crimson-dark) 100%);
+  background:
+    linear-gradient(180deg, var(--crimson-dark) 0, var(--crimson) 148px, transparent 148px),
+    var(--bg);
 }
 
 .signinShell {
@@ -10,9 +12,14 @@
 }
 
 .content {
-  max-width: 1100px;
+  width: min(100% - 2rem, 1100px);
   margin: 0 auto;
-  padding: 0.75rem 0.75rem 1.5rem;
+  padding: 1.5rem 0 2rem;
+}
+
+.pageShell {
+  overflow: hidden;
+  padding-bottom: 1.25rem;
 }
 
 .backLink {
@@ -22,4 +29,11 @@
   color: var(--crimson);
   font-weight: 700;
   text-decoration: none;
+}
+
+@media (max-width: 600px) {
+  .content {
+    width: min(100% - 1.25rem, 1100px);
+    padding-block: 1rem 1.5rem;
+  }
 }

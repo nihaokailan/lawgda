@@ -10,7 +10,7 @@ import styles from '../../styles/dashboard.module.css';
  * document/folder data — /api/platform/organizations enforces the same
  * restriction server-side.
  */
-export default function PlatformDashboardClient({ currentUserId, pendingRequests }) {
+export default function PlatformDashboardClient({ currentUserId, pendingRequests, pendingRequestsError = '' }) {
   const [requests, setRequests] = useState(pendingRequests);
   const [organizations, setOrganizations] = useState([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
@@ -169,48 +169,50 @@ export default function PlatformDashboardClient({ currentUserId, pendingRequests
         <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>
       )}
 
-      <section className={shared.sectionCard} style={{ marginTop: '1.5rem' }}>
-        <h3 style={{ marginTop: 0 }}>Pending Firm Requests</h3>
-        {requests.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>No pending requests.</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '0.5rem' }}>Requested by</th>
-                <th style={{ textAlign: 'left', padding: '0.5rem' }}>Email</th>
-                <th style={{ textAlign: 'left', padding: '0.5rem' }}>Organization</th>
-                <th style={{ textAlign: 'center', padding: '0.5rem' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((req) => (
-                <tr key={req.user_id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '0.5rem' }}>{req.full_name || '-'}</td>
-                  <td style={{ padding: '0.5rem' }}>{req.email}</td>
-                  <td style={{ padding: '0.5rem' }}>{req.requested_org_name}</td>
-                  <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                    <button
-                      disabled={loading}
-                      onClick={() => handleRequestAction(req.user_id, req.email, 'approve')}
-                      style={{ background: '#047857', color: '#fff', border: 'none', padding: '0.4rem 0.7rem', borderRadius: '6px', marginRight: '0.5rem', cursor: 'pointer' }}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      disabled={loading}
-                      onClick={() => handleRequestAction(req.user_id, req.email, 'reject')}
-                      style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '0.4rem 0.7rem', borderRadius: '6px', cursor: 'pointer' }}
-                    >
-                      Reject
-                    </button>
-                  </td>
+      {(pendingRequestsError || requests.length > 0) && (
+        <section className={shared.sectionCard} style={{ marginTop: '1.5rem' }}>
+          <h3 style={{ marginTop: 0 }}>Pending Firm Requests</h3>
+          {pendingRequestsError ? (
+            <p role="alert" style={{ color: 'var(--danger, #b42318)' }}>{pendingRequestsError}</p>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Requested by</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Email</th>
+                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Organization</th>
+                  <th style={{ textAlign: 'center', padding: '0.5rem' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
+              </thead>
+              <tbody>
+                {requests.map((req) => (
+                  <tr key={req.user_id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '0.5rem' }}>{req.full_name || '-'}</td>
+                    <td style={{ padding: '0.5rem' }}>{req.email}</td>
+                    <td style={{ padding: '0.5rem' }}>{req.requested_org_name}</td>
+                    <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                      <button
+                        disabled={loading}
+                        onClick={() => handleRequestAction(req.user_id, req.email, 'approve')}
+                        style={{ background: '#047857', color: '#fff', border: 'none', padding: '0.4rem 0.7rem', borderRadius: '6px', marginRight: '0.5rem', cursor: 'pointer' }}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        disabled={loading}
+                        onClick={() => handleRequestAction(req.user_id, req.email, 'reject')}
+                        style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '0.4rem 0.7rem', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        Reject
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
 
       <section className={shared.sectionCard} style={{ marginTop: '1.5rem' }}>
         <h3 style={{ marginTop: 0 }}>Create a Law Firm</h3>

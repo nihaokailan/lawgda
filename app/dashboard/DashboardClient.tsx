@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StatusBadge from '../components/StatusBadge';
 import DocumentRowActionsDropdown from '../components/DocumentRowActionsDropdown';
@@ -29,9 +30,34 @@ type DashboardMetrics = {
   Filed: number;
 };
 
+type DashboardActivity = {
+  id: string;
+  documentId: string;
+  documentTitle: string;
+  eventType: string;
+  label: string;
+  createdAt: string;
+};
+
 function formatDate(value: string | null) {
   if (!value) return '-';
-  return new Date(value).toLocaleString();
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatActivityDate(value: string) {
+  return new Date(value).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function hashSnippet(value: string | null) {
@@ -44,10 +70,14 @@ function hashSnippet(value: string | null) {
 export default function DashboardClient({
   initialDocuments,
   initialMetrics,
+  initialActivity,
+  activityUnavailable,
   userName,
 }: {
   initialDocuments: DashboardDocument[];
   initialMetrics: DashboardMetrics;
+  initialActivity: DashboardActivity[];
+  activityUnavailable: boolean;
   userName: string;
 }) {
   const router = useRouter();
@@ -56,16 +86,23 @@ export default function DashboardClient({
   const [isScanOpen, setIsScanOpen] = useState(false);
   const [documents, setDocuments] = useState<DashboardDocument[]>(initialDocuments);
   const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
+  const [activity] = useState<DashboardActivity[]>(initialActivity);
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const signatureDocuments = documents.filter((document) => document.myAction === 'sign');
+  const draftDocuments = documents.filter((document) => document.status === 'Drafting');
+  const showAttention = signatureDocuments.length > 0 || draftDocuments.length > 0;
+  const showActivity = activityUnavailable || activity.length > 0;
 
-  const totalDocs = useMemo(
-    () => metrics.Drafting + metrics.Pending + metrics.Signed + metrics.Filed,
-    [metrics]
-  );
-
-  const pageCount = Math.max(1, Math.ceil(documents.length / PAGE_SIZE));
+  const searchableDocuments = documents.filter((document) => {
+    const searchValue = search.trim().toLowerCase();
+    return !searchValue
+      || document.title.toLowerCase().includes(searchValue)
+      || (document.sha256Hash ?? '').toLowerCase().includes(searchValue);
+  });
+  const pageCount = Math.max(1, Math.ceil(searchableDocuments.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const pagedDocuments = documents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pagedDocuments = searchableDocuments.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function onDocumentCreated(newDocument: DashboardDocument) {
     const nextDocs = [newDocument, ...documents].slice(0, 20);
@@ -80,106 +117,173 @@ export default function DashboardClient({
   return (
     <>
       <div className={styles.dashboardContent}>
-        <section className={styles.banner}>
-          <p className={styles.bannerLabel}>LAWDGA Workspace</p>
-          <h2 className={styles.bannerTitle}>Welcome, {userName}!</h2>
-          <p className={styles.bannerSubtitle}>Track drafting progress, verify integrity, and inspect audit history from one workspace.</p>
+        <div className={styles.dashboardTopbar}>
+          <p className={styles.breadcrumb}>
+            <span>Workspace</span><span aria-hidden="true">/</span><strong>Dashboard</strong>
+          </p>
+          <label className={styles.searchBox}>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="5.5" />
+              <path d="m13 13 4 4" />
+            </svg>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+              placeholder="Search documents or file hash"
+              aria-label="Search documents or file hash"
+            />
+          </label>
+        </div>
+
+        <section className={styles.welcomeSection}>
+          <div>
+            <h2 className={styles.welcomeTitle}>Welcome back, {userName}</h2>
+            <p className={styles.welcomeSubtitle}>
+              {signatureDocuments.length > 0
+                ? `${signatureDocuments.length} ${signatureDocuments.length === 1 ? 'document is' : 'documents are'} waiting on your signature.`
+                : 'Your documents and evidence activity, all in one secure workspace.'}
+            </p>
+          </div>
+          <div className={styles.welcomeActions}>
+            <button type="button" className={styles.primaryActionButton} onClick={() => setIsUploadOpen(true)}>
+              Upload document
+            </button>
+            <button type="button" className={styles.secondaryActionButton} onClick={() => setIsVerifyOpen(true)}>
+              Verify a document
+            </button>
+            <button type="button" className={styles.tertiaryActionButton} onClick={() => setIsScanOpen(true)}>
+              Scan QR
+            </button>
+          </div>
         </section>
 
-        <section className={styles.metricsGrid}>
-        <article className={styles.metricCard}>
-          <div className={styles.metricIconGray} aria-hidden="true">D</div>
-          <div>
-            <p className={styles.metricLabel}>Drafting</p>
+        <section className={styles.metricsGrid} aria-label="Document status summary">
+          <article className={styles.metricCard}>
+            <div className={styles.metricHeading}><span className={styles.metricDotGray} />Drafting</div>
             <h3 className={styles.metricValue}>{metrics.Drafting}</h3>
-          </div>
-        </article>
-        <article className={styles.metricCard}>
-          <div className={styles.metricIconAmber} aria-hidden="true">!</div>
-          <div>
-            <p className={styles.metricLabel}>Pending</p>
+            <p className={styles.metricDescription}>Uploaded, not yet sent</p>
+          </article>
+          <article className={styles.metricCard}>
+            <div className={styles.metricHeading}><span className={styles.metricDotAmber} />Pending signature</div>
             <h3 className={styles.metricValue}>{metrics.Pending}</h3>
-          </div>
-        </article>
-        <article className={styles.metricCard}>
-          <div className={styles.metricIconGreen} aria-hidden="true">S</div>
-          <div>
-            <p className={styles.metricLabel}>Signed</p>
+            <p className={styles.metricDescription}>Waiting on signers</p>
+          </article>
+          <article className={styles.metricCard}>
+            <div className={styles.metricHeading}><span className={styles.metricDotGreen} />Signed</div>
             <h3 className={styles.metricValue}>{metrics.Signed}</h3>
-          </div>
-        </article>
-        <article className={styles.metricCard}>
-          <div className={styles.metricIconBlue} aria-hidden="true">F</div>
-          <div>
-            <p className={styles.metricLabel}>Filed</p>
+            <p className={styles.metricDescription}>Sealed with a signature</p>
+          </article>
+          <article className={styles.metricCard}>
+            <div className={styles.metricHeading}><span className={styles.metricDotBlue} />Filed</div>
             <h3 className={styles.metricValue}>{metrics.Filed}</h3>
-          </div>
-        </article>
-      </section>
+            <p className={styles.metricDescription}>Archived and verifiable</p>
+          </article>
+        </section>
 
-      <section className={styles.quickActions}>
-        <div className={styles.queueHeader}>
-          <h3 className={styles.sectionTitle}>Quick Actions</h3>
-          <span className={styles.queueCount}>{totalDocs}</span>
-        </div>
-        <div className={styles.quickActionRow}>
-          <button type="button" className={styles.primaryActionButton} onClick={() => setIsUploadOpen(true)}>
-            Upload Document
-          </button>
-          <button type="button" className={styles.secondaryActionButton} onClick={() => setIsVerifyOpen(true)}>
-            Verify Document
-          </button>
-          <button type="button" className={styles.secondaryActionButton} onClick={() => setIsScanOpen(true)}>
-            Scan QR
-          </button>
-        </div>
-      </section>
+        <div className={`${styles.dashboardColumns} ${!showAttention && !showActivity ? styles.dashboardColumnsFull : ''}`}>
+          <section className={`${styles.workspaceCard} ${styles.recentDocumentsCard}`}>
+            <div className={styles.cardHeader}>
+              <h3 className={styles.sectionTitle}>Recent documents</h3>
+              <Link href="/cases" className={styles.viewAllLink}>View all</Link>
+            </div>
+            {searchableDocuments.length === 0 && (
+              <p className={styles.emptyText}>
+                {documents.length === 0 ? 'No documents yet. Upload a PDF to get started.' : 'No documents match your search.'}
+              </p>
+            )}
+            {searchableDocuments.length > 0 && (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Document</th>
+                      <th>Status</th>
+                      <th>File hash</th>
+                      <th>Updated</th>
+                      <th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedDocuments.map((document) => (
+                      <tr
+                        key={document.id ?? `${document.title}-${document.createdAt}`}
+                        style={{ cursor: document.id ? 'pointer' : undefined }}
+                        onClick={() => { if (document.id) router.push(`/documents/${document.id}/prepare`); }}
+                      >
+                        <td className={styles.documentNameCell}>
+                          <span className={styles.documentGlyph} aria-hidden="true">▤</span>
+                          <span className={styles.documentTitle}>{document.title}</span>
+                        </td>
+                        <td>
+                          {document.id && document.myAction === 'sign' ? (
+                            <SignNowButton documentId={document.id} label="Sign now" className={`${styles.statusBadge} ${styles.badgePending}`} style={{ cursor: 'pointer', border: 0 }} />
+                          ) : document.myAction === 'waiting' ? (
+                            <span className={`${styles.statusBadge} ${styles.badgeDrafting}`}>Awaiting others</span>
+                          ) : (
+                            <StatusBadge status={document.status} />
+                          )}
+                        </td>
+                        <td className={styles.monoCell}>{hashSnippet(document.sha256Hash)}</td>
+                        <td>{formatDate(document.createdAt)}</td>
+                        <td onClick={(event) => event.stopPropagation()}>
+                          <DocumentRowActionsDropdown document={document} openUp={pagedDocuments.length <= 3} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
+              </div>
+            )}
+          </section>
 
-      <section className={styles.workspaceCard}>
-        <h3 className={styles.sectionTitle}>Recent Documents</h3>
-        {documents.length === 0 && <p className={styles.emptyText}>No documents yet. Upload a PDF to begin.</p>}
-        {documents.length > 0 && (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Document Name</th>
-                  <th>Status</th>
-                  <th>SHA-256</th>
-                  <th>Uploaded Date</th>
-                  <th aria-label="actions">...</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedDocuments.map((document) => (
-                  <tr
-                    key={document.id ?? `${document.title}-${document.createdAt}`}
-                    style={{ cursor: document.id ? 'pointer' : undefined }}
-                    onClick={() => { if (document.id) router.push(`/documents/${document.id}/prepare`); }}
-                  >
-                    <td>{document.title}</td>
-                    <td>
-                      {document.id && document.myAction === 'sign' ? (
-                        <SignNowButton documentId={document.id} label="Pending your signature — Sign now" className={`${styles.statusBadge} ${styles.badgePending}`} style={{ cursor: 'pointer', border: 0 }} />
-                      ) : document.myAction === 'waiting' ? (
-                        <span className={`${styles.statusBadge} ${styles.badgeDrafting}`}>Waiting for other signers</span>
-                      ) : (
-                        <StatusBadge status={document.status} />
-                      )}
-                    </td>
-                    <td className={styles.monoCell}>{hashSnippet(document.sha256Hash)}</td>
-                    <td>{formatDate(document.createdAt)}</td>
-                    <td onClick={(event) => event.stopPropagation()}>
-                      <DocumentRowActionsDropdown document={document} openUp={pagedDocuments.length <= 3} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination page={currentPage} pageCount={pageCount} onPageChange={setPage} />
-          </div>
-        )}
-      </section>
+          {(showAttention || showActivity) && (
+            <aside className={styles.dashboardAside}>
+              {showAttention && (
+                <section className={`${styles.workspaceCard} ${styles.attentionCard}`}>
+                  <h3 className={styles.sectionTitle}>Needs your attention</h3>
+                  {signatureDocuments.length > 0 && (
+                    <Link
+                      href={signatureDocuments[0].id ? `/documents/${signatureDocuments[0].id}/prepare` : '/cases'}
+                      className={`${styles.attentionItem} ${styles.attentionPending}`}
+                    >
+                      <span className={styles.attentionIcon} aria-hidden="true">◷</span>
+                      <span><strong>{signatureDocuments.length} {signatureDocuments.length === 1 ? 'document awaits' : 'documents await'} your signature</strong><small>Review pending</small></span>
+                    </Link>
+                  )}
+                  {draftDocuments.length > 0 && (
+                    <Link href="/cases" className={`${styles.attentionItem} ${styles.attentionDraft}`}>
+                      <span className={styles.attentionIcon} aria-hidden="true">▤</span>
+                      <span><strong>{draftDocuments.length} {draftDocuments.length === 1 ? 'draft' : 'drafts'} in progress</strong><small>Review your drafts</small></span>
+                    </Link>
+                  )}
+                </section>
+              )}
+
+              {showActivity && (
+                <section className={`${styles.workspaceCard} ${styles.activityCard}`}>
+                  <h3 className={styles.sectionTitle}>Audit trail</h3>
+                  {activityUnavailable && <p className={styles.emptyAsideText}>The audit trail is temporarily unavailable.</p>}
+                  {!activityUnavailable && (
+                    <ol className={styles.activityTimeline}>
+                      {activity.map((entry) => (
+                        <li className={styles.activityEntry} key={entry.id}>
+                          <span className={`${styles.activityDot} ${entry.eventType.includes('sign') ? styles.activityDotSigned : entry.eventType.includes('file') ? styles.activityDotFiled : ''}`} />
+                          <span className={styles.activityCopy}>
+                            <Link href={`/documents/${entry.documentId}`} className={styles.activityLink}>{entry.documentTitle}</Link>
+                            <span>{entry.label}</span>
+                            <time dateTime={entry.createdAt}>{formatActivityDate(entry.createdAt)}</time>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              )}
+            </aside>
+          )}
+        </div>
       </div>
 
       <UploadModal open={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUploaded={onDocumentCreated} />

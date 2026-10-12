@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getVerificationSession, type VerificationSession } from '../../../../lib/verificationSession';
 import { readStoredDocument } from '../../../../lib/documentVerification';
 import shared from '../../../../styles/shared.module.css';
+import TopNav from '../../../components/TopNav';
 import styles from './results.module.css';
 
 type AuditEntry = { id: string; event_type: string; created_at: string; actor_email?: string; details?: Record<string, unknown>; title?: string; lines?: string[]; actorName?: string; actorRole?: string };
@@ -53,13 +54,15 @@ export default function VerificationResults({ params }: { params: { sessionId: s
     return () => { controller.abort(); urls.forEach(url => URL.revokeObjectURL(url)); };
   }, [params.sessionId]);
 
-  if (!ready) return <main className={styles.page}>Loading verification…</main>;
-  if (!session) return <main className={styles.page}><h1>Verification session expired</h1><p>Please select and verify the file again. Local files are kept only while this tab stays open without reloading.</p><Link href="/verify" className={shared.button}>Verify a document</Link></main>;
+  if (!ready) return <main className={styles.page}><TopNav /><p className={styles.loading}>Loading verification…</p></main>;
+  if (!session) return <main className={styles.page}><TopNav /><section className={styles.expired}><h1>Verification session expired</h1><p>Please select and verify the file again. Local files are kept only while this tab stays open without reloading.</p><Link href="/verify" className={shared.button}>Verify a document</Link></section></main>;
   const referenceLabel = session.source === 'device' && session.version === 'signed' ? 'Lawgda — latest signed document' : 'Lawgda — original document';
   const status = (value: boolean | null) => value === true ? 'Verified' : value === false ? 'Integrity check failed' : 'Not available';
 
   return <main className={styles.page}>
-    <header className={styles.header}><div><p className={styles.eyebrow}>LAWGDA / VERIFICATION</p><h1>{session.title}</h1></div><Link href="/verify" className={shared.linkButton}>Verify another document</Link></header>
+    <TopNav />
+    <div className={styles.pageContent}>
+    <header className={styles.header}><div><p className={styles.eyebrow}>Verification <span aria-hidden="true">/</span> Results</p><h1>{session.title}</h1></div><Link href="/verify" className={shared.linkButton}>Verify another document</Link></header>
     <div className={`${shared.message} ${session.matches ? shared.messageSuccess : shared.messageError}`} role="status">{session.matches ? 'Integrity verified — the checked file matches the recorded document version.' : 'Hash mismatch — the checked file does not match the recorded document version.'}</div>
     <div className={styles.hashSummary}><div><strong>Checked file SHA-256</strong><code>{session.computedHash}</code></div><div><strong>Recorded SHA-256</strong><code>{session.expectedHash}</code></div></div>
     <div className={styles.columns}>
@@ -74,6 +77,7 @@ export default function VerificationResults({ params }: { params: { sessionId: s
       <section className={styles.panel}><h2>Audit trail</h2>{audit && <p>Document audit: {status(audit.chainIntegrity.auditLogsValid)} · Signing audit: {status(audit.chainIntegrity.signingAuditValid)}</p>}<div className={styles.scroll} tabIndex={0} role="region" aria-label="Audit trail">
         {!audit ? <p>{auditError || 'Loading audit trail…'}</p> : audit.auditTrail.length === 0 ? <p>No audit events recorded.</p> : audit.auditTrail.map(entry => <article className={styles.entry} key={`${entry.id}-${entry.event_type}`}><strong>{entry.title || auditEventLabel(entry)}</strong><p>By {entry.actorName || 'System'}{entry.actorRole ? ` (${entry.actorRole})` : ''} · {new Date(entry.created_at).toLocaleString()}</p>{(entry.lines || []).map(line => <small key={line}>{line}</small>)}</article>)}
       </div></section>
+    </div>
     </div>
   </main>;
 }

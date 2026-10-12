@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import shared from '../../styles/shared.module.css';
-import shell from '../../styles/pageShell.module.css';
+import auth from '../../styles/auth.module.css';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import { getAuthRequestErrorMessage } from '../../lib/authError';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -31,122 +31,122 @@ export default function SignupPage() {
       return;
     }
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          },
+          emailRedirectTo: `${window.location.origin}/signin`,
         },
-        emailRedirectTo: `${window.location.origin}/signin`,
-      },
-    });
+      });
 
-    if (signUpError) {
+      if (signUpError) {
+        setError(true);
+        setMessage(
+          signUpError.message.includes('rate limit')
+            ? 'Signup email limit reached. Please wait a few minutes, or ask your admin to temporarily disable email confirmation in Supabase Auth settings for development.'
+            : getAuthRequestErrorMessage(signUpError)
+        );
+        return;
+      }
+
+      if (data && !data.session) {
+        setMessage('Account created. Check your email to confirm your account before signing in.');
+        return;
+      }
+
+      router.push('/dashboard');
+    } catch (signUpError) {
       setError(true);
-      setMessage(
-        signUpError.message.includes('rate limit')
-          ? 'Signup email limit reached. Please wait a few minutes, or ask your admin to temporarily disable email confirmation in Supabase Auth settings for development.'
-          : signUpError.message
-      );
-      return;
+      setMessage(getAuthRequestErrorMessage(signUpError));
     }
-
-    if (data && !data.session) {
-      setMessage('Account created. Check your email to confirm your account before signing in.');
-      return;
-    }
-
-    router.push('/dashboard');
   }
 
   return (
-    <main className={shell.shell}>
-      <div className={shell.content}>
-        <div className={shared.pageShell}>
-          <header className={shared.topNav}>
-            <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
-              <span className={shared.topNavBrandName}>LAWGDA</span>
-              <span className={shared.topNavTagline}>Secure Electronic Evidence</span>
-            </Link>
-            <Link href="/landing" className={shared.topNavLink}>
-              &larr; Go Back
-            </Link>
-          </header>
-          <h1 className={shared.pageTitle}>Create Account</h1>
-          <p className={shared.pageSubtitle}>Anyone can register. New accounts are assigned the User role automatically.</p>
-          <div className={shared.sectionCard}>
-            <form onSubmit={handleSignup} className={shared.formGrid}>
-              <label className={shared.fieldLabel}>
-                First Name
-                <input className={shared.input} value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
-              </label>
-              <label className={shared.fieldLabel}>
-                Last Name
-                <input className={shared.input} value={lastName} onChange={(e) => setLastName(e.target.value)} required />
-              </label>
-              <label className={shared.fieldLabel}>
-                Email
-                <input className={shared.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </label>
-              <label className={shared.fieldLabel}>
-                Password
-                <div className={shared.passwordInputWrap}>
-                  <input
-                    className={`${shared.input} ${shared.passwordInput}`}
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    className={shared.passwordToggle}
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </label>
-              <label className={shared.fieldLabel}>
-                Confirm Password
-                <div className={shared.passwordInputWrap}>
-                  <input
-                    className={`${shared.input} ${shared.passwordInput}`}
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="button"
-                    className={shared.passwordToggle}
-                    onClick={() => setShowConfirmPassword((current) => !current)}
-                    aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
-                  >
-                    {showConfirmPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </label>
-              <button type="submit" className={shared.button}>Create account</button>
-            </form>
-            <p className={shared.helpText} style={{ marginTop: '1rem' }}>
-              Anyone can register. New accounts are created as standard users and can be upgraded later by an admin.
-            </p>
-            {message && (
-              <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>
-            )}
-            <p className={shared.helpText} style={{ marginTop: '1rem' }}>
-              Already have an account? <Link href="/signin" className={shared.linkButton}>Sign in</Link>
-            </p>
-          </div>
+    <main className={auth.page}>
+      <section className={`${auth.card} ${auth.signupCard}`}>
+        <header className={auth.topNav}>
+          <Link href="/landing" className={auth.brandLink} aria-label="Go to the Lawgda landing page">
+            <span className={auth.brandName}>LAWGDA</span>
+            <span className={auth.tagline}>Secure Electronic Evidence</span>
+          </Link>
+          <Link href="/landing" className={auth.backLink}>
+            &larr; Go Back
+          </Link>
+        </header>
+        <div className={auth.content}>
+          <h1 className={auth.title}>Create Account</h1>
+          <p className={auth.subtitle}>Anyone can register. New accounts are assigned the User role automatically.</p>
+          <form onSubmit={handleSignup} className={`${auth.form} ${auth.signupForm}`}>
+            <label className={auth.field}>
+              First Name
+              <input className={auth.input} value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+            </label>
+            <label className={auth.field}>
+              Last Name
+              <input className={auth.input} value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+            </label>
+            <label className={auth.field}>
+              Email
+              <input className={auth.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <label className={auth.field}>
+              Password
+              <div className={auth.inputWrap}>
+                <input
+                  className={`${auth.input} ${auth.passwordInput}`}
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  className={auth.passwordToggle}
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </label>
+            <label className={auth.field}>
+              Confirm Password
+              <div className={auth.inputWrap}>
+                <input
+                  className={`${auth.input} ${auth.passwordInput}`}
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  className={auth.passwordToggle}
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                >
+                  {showConfirmPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </label>
+            <button type="submit" className={auth.primaryButton}>Create account</button>
+          </form>
+          {message && (
+            <p className={`${auth.message} ${error ? auth.messageError : auth.messageSuccess}`}>{message}</p>
+          )}
+          <p className={auth.footerText}>
+            Already have an account? <Link href="/signin" className={auth.footerLink}>Sign in</Link>
+          </p>
         </div>
-      </div>
+      </section>
     </main>
   );
 }

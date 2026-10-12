@@ -3,14 +3,46 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from '../../styles/workspace.module.css';
-import { PERMISSIONS, ROLE_LABELS, hasPermission } from '../../lib/roles';
+import { PERMISSIONS, hasPermission } from '../../lib/roles';
 
 function navItemClass(pathname, href) {
   const isActive = pathname === href || pathname.startsWith(`${href}/`);
   return `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`;
 }
 
-export default function WorkspaceSidebar({ role }) {
+const NAV_ICONS = {
+  dashboard: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+  user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a8 8 0 0 1 16 0v1" /></>,
+  key: <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 8.7-8.7M16 7l2 2m-5 1 2 2" /></>,
+  documents: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8m-8 4h8" /></>,
+  admin: <><path d="M12 3 20 7v5c0 5-3.4 8-8 10-4.6-2-8-5-8-10V7z" /><path d="m9 12 2 2 4-4" /></>,
+  repository: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></>,
+  audit: <><path d="M8 3h8l4 4v14H4V3z" /><path d="M8 11h8m-8 4h8m-8 4h5" /></>,
+};
+
+function NavigationIcon({ href }) {
+  const kind = href === '/dashboard' || href === '/admin' || href === '/platform'
+    ? 'dashboard'
+    : href === '/profile'
+      ? 'user'
+      : href === '/admin/request'
+        ? 'key'
+        : href === '/cases'
+          ? 'documents'
+          : href.includes('repository') || href === '/repository'
+            ? 'repository'
+            : href.includes('audit')
+              ? 'audit'
+              : 'admin';
+
+  return (
+    <svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true">
+      {NAV_ICONS[kind]}
+    </svg>
+  );
+}
+
+export default function WorkspaceSidebar({ role, dashboard = false }) {
   const pathname = usePathname();
 
   const items = [
@@ -45,39 +77,55 @@ export default function WorkspaceSidebar({ role }) {
   ];
 
   return (
-    <aside className={`workspace-sidebar ${styles.sidebar}`}>
-      <div>
-        <p className={styles.brand}>LAWGDA</p>
-        <p className={styles.roleBadge}>{ROLE_LABELS[role] ?? 'Staff'}</p>
+    <aside className={`workspace-sidebar ${styles.sidebar} ${dashboard ? styles.dashboardSidebar : ''}`}>
+      {dashboard && (
+        <Link href="/landing" className={styles.dashboardBrand} aria-label="Lawgda home">
+          <span className={styles.brandMark} aria-hidden="true">L</span>
+          <span className={styles.brandText}>
+            <span className={styles.brandName}>LAWGDA</span>
+            <span className={styles.brandTagline}>Secure evidence</span>
+          </span>
+        </Link>
+      )}
+      <div className={styles.sidebarNavigation}>
+        <nav className={styles.nav}>
+          {items
+            .filter((item) => {
+              if (dashboard && item.href === '/cases') {
+                return false;
+              }
+              if (item.roles) {
+                return item.roles.includes(role);
+              }
+              if (role === 'default_admin') {
+                return false;
+              }
+              if (!item.permissions) {
+                return true;
+              }
+              return item.permissions.some((permission) => hasPermission(role, permission));
+            })
+            .map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`${navItemClass(pathname, item.href)} workspace-navLink ${pathname === item.href || pathname.startsWith(`${item.href}/`) ? 'workspace-navLinkActive' : ''}`}
+              >
+                <NavigationIcon href={item.href} />
+                <span>{item.label === 'Request Admin' ? 'Request admin access' : item.label}</span>
+              </Link>
+            ))}
+        </nav>
       </div>
 
-      <nav className={styles.nav}>
-        {items
-          .filter((item) => {
-            if (item.roles) {
-              return item.roles.includes(role);
-            }
-            if (role === 'default_admin') {
-              return false;
-            }
-            if (!item.permissions) {
-              return true;
-            }
-            return item.permissions.some((permission) => hasPermission(role, permission));
-          })
-          .map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${navItemClass(pathname, item.href)} workspace-navLink ${pathname === item.href || pathname.startsWith(`${item.href}/`) ? 'workspace-navLinkActive' : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-      </nav>
-
-      <form action="/api/auth/signout" method="post" className={styles.signoutForm}>
-        <button type="submit" className={`workspace-signoutButton ${styles.signoutButton}`}>Sign out</button>
+      <form action="/api/auth/signout" method="post" className={`${styles.signoutForm} ${dashboard ? styles.dashboardSignoutForm : ''}`}>
+        <button type="submit" className={`${styles.signoutButton} ${dashboard ? styles.dashboardSignoutButton : ''}`}>
+          <svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l5-5-5-5m5 5H3" />
+            <path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" />
+          </svg>
+          <span>Sign out</span>
+        </button>
       </form>
     </aside>
   );

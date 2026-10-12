@@ -109,11 +109,13 @@ export default function CaseDetailClient({
         )}
       </section>
 
-      <section className={styles.workspaceCard}>
-        <h3 className={styles.sectionTitle}>Case Chain of Custody</h3>
-        <p className={styles.infoText}>Most recent recorded activity across this case&apos;s documents.</p>
-        <AuditTrailList entries={activity} maxHeight={360} />
-      </section>
+      {activity.length > 0 && (
+        <section className={styles.workspaceCard}>
+          <h3 className={styles.sectionTitle}>Case Chain of Custody</h3>
+          <p className={styles.infoText}>Most recent recorded activity across this case&apos;s documents.</p>
+          <AuditTrailList entries={activity} maxHeight={360} />
+        </section>
+      )}
 
       <CaseQrCard caseId={caseId} caseTitle={caseTitle} />
 

@@ -8,6 +8,7 @@ export default async function ProfilePage() {
   return (
     <WorkspaceShell
       profile={profile}
+      breadcrumb="Account"
       title="User Profile"
       subtitle="Update your basic profile information and check your current access role."
     >

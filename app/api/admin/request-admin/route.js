@@ -20,22 +20,28 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Organization name is required.' }, { status: 400 });
   }
 
-  const payload = {
-    user_id: user.id,
-    email: user.email ?? null,
-    requested_org_name: organizationName,
-    admin_request_note: justification || null,
-    admin_request_status: 'pending',
-    admin_requested_at: new Date().toISOString(),
-  };
-
-  const { error: updateError } = await supabase
+  const { data: updatedProfile, error: updateError } = await supabase
     .from('profiles')
-    .upsert(payload, { onConflict: 'user_id' });
+    .update({
+      email: user.email ?? null,
+      requested_org_name: organizationName,
+      admin_request_note: justification || null,
+      admin_request_status: 'pending',
+      admin_requested_at: new Date().toISOString(),
+    })
+    .eq('user_id', user.id)
+    .eq('role', 'normal')
+    .is('org_id', null)
+    .select('user_id,admin_request_status,requested_org_name,admin_requested_at')
+    .maybeSingle();
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 400 });
+    return NextResponse.json({ error: `Unable to save the admin request: ${updateError.message}` }, { status: 400 });
   }
 
-  return NextResponse.json({ success: true });
+  if (!updatedProfile) {
+    return NextResponse.json({ error: 'Your account could not be found or is not eligible to request admin access.' }, { status: 409 });
+  }
+
+  return NextResponse.json({ success: true, request: updatedProfile });
 }

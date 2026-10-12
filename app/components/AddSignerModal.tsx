@@ -110,7 +110,9 @@ export default function AddSignerModal({ open, documentId, onClose, onChanged }:
       <div className={styles.modalCard}>
         <div className={styles.modalHeader}>
           <h3 className={styles.sectionTitle}>Add Signer</h3>
-          <button type="button" className={styles.modalClose} onClick={onClose}>Close</button>
+          <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close add signer dialog" title="Close">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+          </button>
         </div>
 
         <form className={styles.modalBody} onSubmit={handleAddSigner}>

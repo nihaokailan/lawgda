@@ -12,7 +12,7 @@ export default async function PlatformDashboardPage() {
   // (people who are not members of any firm) — never lawyer/staff PII. Read
   // with the service role because RLS deliberately hides these rows from
   // Default Admin's own session.
-  const { data: pendingRequests } = await getSupabaseAdmin()
+  const { data: pendingRequests, error: pendingRequestsError } = await getSupabaseAdmin()
     .from('profiles')
     .select('user_id,email,full_name,requested_org_name,admin_request_note,admin_requested_at')
     .eq('admin_request_status', 'pending')
@@ -20,13 +20,21 @@ export default async function PlatformDashboardPage() {
     .is('org_id', null)
     .order('admin_requested_at', { ascending: false });
 
+  if (pendingRequestsError) {
+    console.error('Unable to load pending admin requests:', pendingRequestsError);
+  }
+
   return (
     <WorkspaceShell
       profile={profile}
       title="Platform Administration"
       subtitle="Manage law firms and their Organization Admin accounts."
     >
-      <PlatformDashboardClient currentUserId={user.id} pendingRequests={pendingRequests || []} />
+      <PlatformDashboardClient
+        currentUserId={user.id}
+        pendingRequests={pendingRequests || []}
+        pendingRequestsError={pendingRequestsError ? 'Pending firm requests could not be loaded. Please refresh or contact support.' : ''}
+      />
     </WorkspaceShell>
   );
 }

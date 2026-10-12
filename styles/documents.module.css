@@ -1,9 +1,9 @@
 .docsShell {
-  background: #ffffff;
-  border: none;
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+  box-shadow: var(--surface-shadow);
   display: grid;
   gap: 0.7rem;
 }
@@ -14,12 +14,12 @@
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid #e8edf5;
+  border-bottom: 1px solid var(--border);
 }
 
 .sectionTitle {
   margin: 0;
-  color: #1e2639;
+  color: var(--text);
   font-size: clamp(1.2rem, 1.08rem + 0.6vw, 1.55rem);
   font-weight: 700;
 }
@@ -31,8 +31,9 @@
 
 .verifyButton,
 .prepareButton {
+  min-height: 40px;
   padding: 0.58rem 0.95rem;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-weight: 600;
   font-size: 0.88rem;
   text-decoration: none;
@@ -42,15 +43,15 @@
 }
 
 .verifyButton {
-  color: #4a1323;
-  border: 1px solid #d5dce9;
-  background: #fff;
+  color: var(--crimson-dark);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .prepareButton {
   color: #fff;
-  border: 1px solid #690f1a;
-  background: #8a1020;
+  border: 1px solid var(--crimson);
+  background: var(--crimson);
 }
 
 .verifyButton:hover,
@@ -59,7 +60,7 @@
 }
 
 .prepareButton:hover {
-  background: #6d0c17;
+  background: var(--crimson-dark);
 }
 
 .summaryRow {
@@ -69,23 +70,22 @@
 }
 
 .summaryCard {
-  border: none;
-  border-left: 2px solid #d9e1f0;
-  border-radius: 0;
-  background: transparent;
-  padding: 0.5rem 0.58rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-alt);
+  padding: 0.7rem;
 }
 
 .summaryLabel {
   margin: 0;
-  color: #667189;
+  color: var(--muted);
   font-size: 0.74rem;
   line-height: 1.25;
 }
 
 .summaryValue {
   margin: 0.22rem 0 0;
-  color: #1f2a3f;
+  color: var(--text);
   font-size: 1rem;
   font-weight: 700;
 }
@@ -97,10 +97,11 @@
 }
 
 .filterButton {
-  border: 1px solid #d7dceb;
-  background: transparent;
-  color: #4f5f7b;
-  border-radius: 999px;
+  min-height: 34px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: var(--radius-control);
   font-weight: 600;
   font-size: 0.8rem;
   padding: 0.36rem 0.74rem;
@@ -108,8 +109,8 @@
 
 .filterButtonActive {
   color: #fff;
-  border-color: #8a1020;
-  background: #8a1020;
+  border-color: var(--crimson);
+  background: var(--crimson);
 }
 
 .searchRow {
@@ -118,10 +119,18 @@
 
 .searchInput {
   width: 100%;
-  border: 1px solid #d4dbea;
-  border-radius: 0;
-  background: transparent;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
   padding: 0.62rem 0.75rem;
+}
+
+.searchInput:focus {
+  border-color: rgba(106, 15, 26, 0.55);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(106, 15, 26, 0.09);
 }
 
 .resultsWrap {
@@ -132,9 +141,9 @@
 .emptyState {
   margin: 0;
   padding: 0.85rem;
-  border: 1px dashed #d2d7e7;
-  border-radius: 0;
-  color: #657089;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
@@ -146,12 +155,12 @@
 .table th,
 .table td {
   text-align: left;
-  border-bottom: 1px solid #e7eaf3;
+  border-bottom: 1px solid var(--border);
   padding: 0.56rem 0.5rem;
 }
 
 .table th {
-  color: #626d84;
+  color: var(--muted);
   font-size: 0.73rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -159,14 +168,14 @@
 
 .table td {
   font-size: 0.88rem;
-  color: #1f2739;
+  color: var(--text);
 }
 
 .statusPill {
   display: inline-flex;
   border-radius: 999px;
-  background: #f0f4fb;
-  color: #324766;
+  background: var(--surface-alt);
+  color: var(--muted);
   padding: 0.22rem 0.52rem;
   font-weight: 600;
   font-size: 0.75rem;
@@ -183,8 +192,8 @@
 }
 
 .statusPillDrafts {
-  background: #eceff3;
-  color: #374151;
+  background: #f1efed;
+  color: var(--text);
 }
 
 .statusPillDenied {
@@ -193,7 +202,7 @@
 }
 
 .openLink {
-  color: #7a0f1d;
+  color: var(--crimson);
   text-decoration: none;
   font-weight: 600;
 }

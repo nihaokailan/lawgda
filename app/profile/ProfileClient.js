@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import shared from '../../styles/shared.module.css';
 import styles from '../../styles/workspace.module.css';
 import { ROLE_LABELS } from '../../lib/roles';
@@ -128,73 +129,158 @@ export default function ProfileClient({ initialProfile, email }) {
   }
 
   return (
-    <>
-      <div className={styles.profileToolbar}>
-        <button type="button" className={shared.linkButton} onClick={() => setIsEditing((value) => !value)}>
-          &#9998; {isEditing ? 'Close Edit' : 'Edit'}
-        </button>
-      </div>
+    <div className={styles.profilePage}>
+      <section className={styles.profileIdentity}>
+        <span className={styles.profileAvatar} aria-hidden="true">
+          {(firstName || accountEmail || 'U').charAt(0).toUpperCase()}
+        </span>
+        <div className={styles.profileIdentityCopy}>
+          <h2>{`${firstName} ${lastName}`.trim() || 'Your profile'}</h2>
+          <p>{accountEmail}</p>
+        </div>
+        <span className={styles.rolePill}>
+          <span aria-hidden="true" />{ROLE_LABELS[role] ?? role} role
+        </span>
+      </section>
 
-      <div className={styles.profileFormSurface}>
-        <form onSubmit={handleSave} className={shared.formGrid}>
-          <label className={shared.fieldLabel}>
-            Organization ID
-            <input className={`${shared.input} ${styles.profileLocked}`} value={organizationId || 'Not assigned yet'} disabled />
-          </label>
-          <label className={shared.fieldLabel}>
-            First Name
-            <input
-              className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
-              value={firstName}
-              onChange={(event) => setFirstName(event.target.value)}
-              disabled={!isEditing}
-              required
-            />
-          </label>
-          <label className={shared.fieldLabel}>
-            Last Name
-            <input className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`} value={lastName} onChange={(event) => setLastName(event.target.value)} disabled={!isEditing} required />
-          </label>
-          <label className={shared.fieldLabel}>
-            Current Role
-            <input className={`${shared.input} ${styles.profileLocked}`} value={ROLE_LABELS[role] ?? role} disabled />
-          </label>
-          <label className={shared.fieldLabel}>
-            Change Password
-            <input className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`} type="password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setCodeSent(false); setCodeVerified(false); }} disabled={!isEditing} placeholder="Leave blank to keep current password" minLength={6} />
-          </label>
-          <label className={shared.fieldLabel}>
-            Confirm Password
-            <input className={`${shared.input} ${isEditing && newPassword ? styles.profileEditable : styles.profileLocked}`} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={!isEditing || !newPassword} minLength={6} />
-          </label>
-          <label className={shared.fieldLabel}>
-            Admin Request
-            <input className={`${shared.input} ${styles.profileLocked}`} value={initialProfile.admin_request_status ?? 'none'} disabled />
-          </label>
-          <label className={shared.fieldLabel}>
-            Email
-            <input className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`} type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} disabled={!isEditing} required />
-          </label>
-          {newPassword && isEditing && (
-            <>
-              {codeSent && !codeVerified && (
+      <div className={styles.profileColumns}>
+        <section className={styles.profileFormSurface}>
+          <form onSubmit={handleSave}>
+            <div className={styles.profileFormBody}>
+              <div className={styles.profileSectionHeading}>
+                <h2>Personal information</h2>
+                <p>This name appears on the documents you upload and sign.</p>
+              </div>
+
+              <div className={styles.profileNameFields}>
                 <label className={shared.fieldLabel}>
-                  Confirmation code
-                  <input className={`${shared.input} ${styles.profileEditable}`} value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} inputMode="numeric" />
+                  First name
+                  <input
+                    className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    disabled={!isEditing}
+                    required
+                  />
                 </label>
+                <label className={shared.fieldLabel}>
+                  Last name
+                  <input
+                    className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    disabled={!isEditing}
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className={shared.fieldLabel}>
+                Email
+                <input
+                  className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
+                  type="email"
+                  value={accountEmail}
+                  onChange={(event) => setAccountEmail(event.target.value)}
+                  disabled={!isEditing}
+                  required
+                />
+              </label>
+
+              <div className={styles.profilePasswordFields}>
+                <label className={shared.fieldLabel}>
+                  Change password
+                  <input
+                    className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => {
+                      setNewPassword(event.target.value);
+                      setCodeSent(false);
+                      setCodeVerified(false);
+                    }}
+                    disabled={!isEditing}
+                    placeholder="Leave blank to keep current password"
+                    minLength={6}
+                  />
+                </label>
+                <p className={styles.profileHint}>Only fill this in if you want to set a new password.</p>
+                {newPassword && isEditing && (
+                  <label className={shared.fieldLabel}>
+                    Confirm password
+                    <input
+                      className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      minLength={6}
+                    />
+                  </label>
+                )}
+                {codeSent && !codeVerified && isEditing && (
+                  <label className={shared.fieldLabel}>
+                    Confirmation code
+                    <input
+                      className={`${shared.input} ${styles.profileEditable}`}
+                      value={verificationCode}
+                      onChange={(event) => setVerificationCode(event.target.value)}
+                      inputMode="numeric"
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.profileFormFooter}>
+              {!isEditing ? (
+                <button
+                  type="button"
+                  className={shared.button}
+                  onClick={() => setIsEditing(true)}
+                >
+                  Edit profile
+                </button>
+              ) : (
+                <>
+                  <button type="button" className={shared.linkButton} onClick={() => setIsEditing(false)}>
+                    Cancel
+                  </button>
+                  <button className={shared.button} type="submit" disabled={saving}>
+                    {saving ? 'Saving...' : 'Save changes'}
+                  </button>
+                </>
               )}
-            </>
+            </div>
+          </form>
+          {message && (
+            <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>
+              {message}
+            </p>
           )}
-          <button className={shared.button} type="submit" disabled={saving || !isEditing}>
-            {saving ? 'Saving...' : 'Save profile'}
-          </button>
-        </form>
-        {message && (
-          <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>
-            {message}
-          </p>
-        )}
+        </section>
+
+        <aside className={styles.profileDetailsCard}>
+          <h2>Account details <span aria-label="Read only">Read only</span></h2>
+          <div className={styles.profileDetail}>
+            <span>Organization ID</span>
+            <strong>{organizationId || 'Not assigned yet'}</strong>
+            {!organizationId && <p>Assigned when you join an organization.</p>}
+          </div>
+          <div className={styles.profileDetail}>
+            <span>Current role</span>
+            <strong className={styles.rolePillCompact}>{ROLE_LABELS[role] ?? role}</strong>
+          </div>
+          <div className={styles.profileDetail}>
+            <span>Admin request</span>
+            <strong>{initialProfile.admin_request_status || 'None'}</strong>
+          </div>
+          {role === 'normal' && (
+            <Link className={styles.profileRequestLink} href="/admin/request">
+              Request admin access <span aria-hidden="true">→</span>
+            </Link>
+          )}
+        </aside>
       </div>
-    </>
+    </div>
   );
 }
