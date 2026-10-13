@@ -167,13 +167,13 @@
   font-family: Georgia, serif;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #ffffff;
+  color: #fff;
   line-height: 1.15;
 }
 
 .subtitle {
   margin: 0.2rem 0 0;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.84);
   line-height: 1.5;
   font-size: 0.96rem;
   font-weight: 400;
@@ -207,15 +207,6 @@
   background: #fff !important;
   color: var(--text);
   opacity: 1;
-}
-
-.profileFormSurface {
-  margin-top: 1rem;
-  padding: 1rem 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  border-top: 1px solid #e3e8f2;
 }
 
 .infoCard {
@@ -383,11 +374,16 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  background: var(--crimson);
-  color: #fff;
+  background: linear-gradient(145deg, var(--crimson), var(--crimson-dark));
+  color: #ead7b3;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 1rem;
   font-weight: 700;
+}
+
+.brandMark svg {
+  width: 21px;
+  height: 21px;
 }
 
 .brandText {
@@ -597,23 +593,15 @@
 .container:not(.dashboardContainer) {
   position: relative;
   isolation: isolate;
-  padding-top: 1rem;
+  padding-top: 1.1rem;
 }
 
 .container:not(.dashboardContainer)::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  top: 0;
-  left: 50%;
-  width: 100vw;
-  height: 148px;
-  transform: translateX(-50%);
-  background: linear-gradient(105deg, var(--crimson-dark), var(--crimson));
+  content: none;
 }
 
 .container:not(.dashboardContainer) > .sidebar {
-  margin-top: 108px;
+  margin-top: 0;
   min-height: 0;
   max-height: calc(100dvh - 108px);
   padding: 0.55rem;
@@ -623,11 +611,14 @@
 
 .container:not(.dashboardContainer) .header {
   gap: 0.35rem;
-  padding: 0.55rem 0 1.35rem;
-  margin: 0;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
+  min-height: 150px;
+  justify-content: center;
+  padding: clamp(1.2rem, 2.2vw, 1.8rem);
+  margin: 0 0 1rem;
+  background: linear-gradient(115deg, var(--crimson-dark), var(--crimson));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 24px rgba(79, 11, 19, 0.14);
 }
 
 .breadcrumb {
@@ -637,7 +628,7 @@
 }
 
 .container:not(.dashboardContainer) .title {
-  font-size: clamp(2rem, 3vw, 2.5rem);
+  font-size: clamp(1.9rem, 2.6vw, 2.35rem);
 }
 
 .container:not(.dashboardContainer) .subtitle {
@@ -760,8 +751,12 @@
 
 .profileSectionHeading,
 .requestSectionHeading {
-  padding: 1.15rem 1.15rem 0;
+  padding: 0;
   margin-bottom: 0.15rem;
+}
+
+.requestSectionHeading {
+  padding: 1.15rem 1.15rem 0;
 }
 
 .profileNameFields {
@@ -1028,20 +1023,16 @@
 }
 
 .dashboardShell::before {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  top: 72px;
-  left: 0;
-  width: 100%;
-  height: 165px;
-  background: linear-gradient(105deg, var(--crimson-dark), var(--crimson));
+  content: none;
 }
 
 .dashboardContainer {
   position: relative;
   z-index: 1;
   grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(1rem, 1.8vw, 1.6rem);
+  padding-block: 1.1rem 2rem;
   padding-inline: clamp(0.8rem, 1.6vw, 1.5rem);
 }
 
@@ -1052,7 +1043,7 @@
   height: auto;
   min-height: 0;
   max-height: none;
-  margin-top: 130px;
+  margin-top: 0;
   padding: 0.8rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -1187,7 +1178,8 @@
 }
 
 .dashboardMainPanel {
-  padding-top: 1.05rem;
+  min-width: 0;
+  padding: 0;
 }
 
 @media (max-width: 959px) {
@@ -1196,11 +1188,12 @@
     top: auto;
     height: auto;
     min-height: 0;
-    margin-top: 130px;
+    margin-top: 0;
   }
 
   .dashboardContainer {
     grid-template-columns: 200px minmax(0, 1fr);
+    gap: 1rem;
   }
 }
 
@@ -1214,20 +1207,16 @@
     margin-top: 0;
   }
 
-  .container:not(.dashboardContainer)::before {
-    height: 220px;
-  }
-
   .dashboardSidebar {
     margin-top: 0;
   }
 
   .dashboardShell::before {
-    height: 245px;
+    content: none;
   }
 
   .dashboardMainPanel {
-    padding: 0.8rem 0 1.2rem;
+    padding: 0;
   }
 }
 
@@ -1243,7 +1232,9 @@
   .profileNameFields {
     grid-template-columns: 1fr;
   }
+}
 
+@media (max-width: 760px) {
   .requestSteps {
     gap: 0.4rem;
   }

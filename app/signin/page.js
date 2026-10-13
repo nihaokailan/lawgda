@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from 'react';
 import auth from '../../styles/auth.module.css';
 import { getAuthRequestErrorMessage } from '../../lib/authError';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import LawgdaMark from '../components/LawgdaMark';
 
 // A recovery code (and its PKCE verifier) can be exchanged only once. React
 // Strict Mode runs effects twice in development, so share a single exchange
@@ -193,8 +194,11 @@ function SignInPageContent() {
       <section className={auth.card}>
         <header className={auth.topNav}>
           <Link href="/landing" className={auth.brandLink} aria-label="Go to the Lawgda landing page">
-            <span className={auth.brandName}>LAWGDA</span>
-            <span className={auth.tagline}>Secure Electronic Evidence</span>
+            <span className={auth.brandIcon}><LawgdaMark /></span>
+            <span className={auth.brandCopy}>
+              <span className={auth.brandName}>LAWGDA</span>
+              <span className={auth.tagline}>Secure Electronic Evidence</span>
+            </span>
           </Link>
           <Link href="/landing" className={auth.backLink}>
             &larr; Go Back
@@ -202,11 +206,11 @@ function SignInPageContent() {
         </header>
         <div className={auth.content}>
           <h1 className={auth.title}>Sign In</h1>
-          <p className={auth.subtitle}>Access your secure document workspace and evidence tracking dashboard.</p>
+          <p className={auth.subtitle}>Sign in to view your documents, signature requests and recent activity.</p>
           <form onSubmit={handleSignIn} className={auth.form}>
             <label className={auth.field}>
               Email
-              <input className={auth.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input className={auth.input} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label className={auth.field}>
               Password
@@ -214,6 +218,7 @@ function SignInPageContent() {
                 <input
                   className={`${auth.input} ${auth.passwordInput}`}
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

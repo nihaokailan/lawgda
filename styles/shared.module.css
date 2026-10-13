@@ -226,6 +226,7 @@
   flex: 0 0 auto;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.08);
   color: #f0ddbf;
 }
 
@@ -301,6 +302,56 @@
   white-space: nowrap;
 }
 
+.accountControl {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.accountPanel {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 0.65rem);
+  right: 0;
+  width: min(300px, calc(100vw - 1.5rem));
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: 0 14px 36px rgba(37, 20, 22, 0.2);
+  color: var(--text);
+}
+
+.accountPanelLabel {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.accountPanelEmail {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.accountProfileLink {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  margin: 0.45rem -0.45rem -0.45rem;
+  padding: 0.55rem 0.45rem;
+  border-top: 1px solid var(--border);
+  color: var(--crimson-dark);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.accountProfileLink:hover {
+  color: var(--crimson);
+}
+
 .topNavSignOut {
   color: #fff;
 }
@@ -311,8 +362,8 @@
 }
 
 .topNavAvatar {
-  width: 30px;
-  height: 30px;
+  width: 42px;
+  height: 42px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -321,7 +372,19 @@
   background: #ffffff;
   color: #4f0b13;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.topNavAvatar:hover,
+.topNavAvatar[aria-expanded='true'] {
+  background: #f4e6d8;
+}
+
+.topNavAvatar:focus-visible {
+  outline: 3px solid #f0ddbf;
+  outline-offset: 3px;
 }
 
 @media (max-width: 780px) {
@@ -344,7 +407,8 @@
   }
 
   .topNavAvatar {
-    display: none;
+    width: 42px;
+    height: 42px;
   }
 }
 

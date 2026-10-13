@@ -28,7 +28,6 @@ const FILTERS = [
   'Pending Signatures',
   'Filed',
   'Signed',
-  'Pending',
   'Drafts',
   'Cancelled',
   'Denied',
@@ -75,7 +74,6 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
       'Pending Signatures': 0,
       Filed: 0,
       Signed: 0,
-      Pending: 0,
       Drafts: 0,
       Cancelled: 0,
       Denied: 0,
@@ -83,7 +81,7 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
     };
 
     visibleDocuments.forEach((row) => {
-      if (counts[row.status] !== undefined) {
+      if (row.status !== 'Pending' && counts[row.status] !== undefined) {
         counts[row.status] += 1;
       }
       if (row.status === 'Pending') {
@@ -134,33 +132,26 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
   return (
     <section className={styles.docsShell}>
       <header className={styles.sectionHeader}>
-        <h2 className={styles.sectionTitle}>Document Section</h2>
+        <h2 className={styles.sectionTitle}>Documents</h2>
         <div className={styles.topActions}>
-          <Link href="/verify" className={styles.verifyButton}>Verify Document</Link>
+          <Link href="/verify" className={styles.verifyButton}>Verify a document</Link>
           <button type="button" className={styles.prepareButton} onClick={() => setIsUploadOpen(true)}>
-            Upload Document
+            Upload a document
           </button>
         </div>
       </header>
 
-      <div className={styles.summaryRow}>
-        {FILTERS.map((item) => (
-          <article key={`summary-${item}`} className={styles.summaryCard}>
-            <p className={styles.summaryLabel}>{item}</p>
-            <p className={styles.summaryValue}>{statusSummary[item] || 0}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className={styles.filterRow}>
+      <div className={styles.summaryRow} role="group" aria-label="Filter documents by status">
         {FILTERS.map((item) => (
           <button
-            key={item}
+            key={`summary-${item}`}
             type="button"
-            className={`${styles.filterButton} ${filter === item ? styles.filterButtonActive : ''}`}
+            className={`${styles.summaryCard} ${filter === item ? styles.summaryCardActive : ''}`}
+            aria-pressed={filter === item}
             onClick={() => setFilter(item)}
           >
-            {item}
+            <span className={styles.summaryLabel}>{item}</span>
+            <span className={styles.summaryValue}>{statusSummary[item] || 0}</span>
           </button>
         ))}
       </div>
@@ -171,11 +162,20 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
           placeholder="Search by title, case number, tag, status, or owner"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          aria-label="Search documents by title, case number, tag, status, or owner"
         />
       </div>
 
       <div className={styles.resultsWrap}>
-        {filtered.length === 0 && <p className={styles.emptyState}>No documents in this view.</p>}
+        {filtered.length === 0 && (
+          <p className={styles.emptyState}>
+            {visibleDocuments.length === 0
+              ? 'No documents yet. Upload a PDF to get started.'
+              : query.trim()
+                ? 'No documents match your search. Try a different search.'
+                : `No documents with the ${filter.toLowerCase()} status.`}
+          </p>
+        )}
 
         {filtered.length > 0 && (
           <table className={styles.table}>

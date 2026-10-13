@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import auth from '../../styles/auth.module.css';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getAuthRequestErrorMessage } from '../../lib/authError';
+import LawgdaMark from '../components/LawgdaMark';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -72,8 +73,11 @@ export default function SignupPage() {
       <section className={`${auth.card} ${auth.signupCard}`}>
         <header className={auth.topNav}>
           <Link href="/landing" className={auth.brandLink} aria-label="Go to the Lawgda landing page">
-            <span className={auth.brandName}>LAWGDA</span>
-            <span className={auth.tagline}>Secure Electronic Evidence</span>
+            <span className={auth.brandIcon}><LawgdaMark /></span>
+            <span className={auth.brandCopy}>
+              <span className={auth.brandName}>LAWGDA</span>
+              <span className={auth.tagline}>Secure Electronic Evidence</span>
+            </span>
           </Link>
           <Link href="/landing" className={auth.backLink}>
             &larr; Go Back
@@ -81,19 +85,19 @@ export default function SignupPage() {
         </header>
         <div className={auth.content}>
           <h1 className={auth.title}>Create Account</h1>
-          <p className={auth.subtitle}>Anyone can register. New accounts are assigned the User role automatically.</p>
+          <p className={auth.subtitle}>Create an account to organize documents and manage signature requests.</p>
           <form onSubmit={handleSignup} className={`${auth.form} ${auth.signupForm}`}>
             <label className={auth.field}>
               First Name
-              <input className={auth.input} value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              <input className={auth.input} autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
             </label>
             <label className={auth.field}>
               Last Name
-              <input className={auth.input} value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              <input className={auth.input} autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
             </label>
             <label className={auth.field}>
               Email
-              <input className={auth.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <input className={auth.input} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             <label className={auth.field}>
               Password
@@ -101,6 +105,7 @@ export default function SignupPage() {
                 <input
                   className={`${auth.input} ${auth.passwordInput}`}
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -115,6 +120,7 @@ export default function SignupPage() {
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
+              <span className={auth.helperText}>Use at least 6 characters.</span>
             </label>
             <label className={auth.field}>
               Confirm Password
@@ -122,6 +128,7 @@ export default function SignupPage() {
                 <input
                   className={`${auth.input} ${auth.passwordInput}`}
                   type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

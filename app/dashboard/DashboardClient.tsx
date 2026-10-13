@@ -117,32 +117,13 @@ export default function DashboardClient({
   return (
     <>
       <div className={styles.dashboardContent}>
-        <div className={styles.dashboardTopbar}>
-          <p className={styles.breadcrumb}>
-            <span>Workspace</span><span aria-hidden="true">/</span><strong>Dashboard</strong>
-          </p>
-          <label className={styles.searchBox}>
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <circle cx="8.5" cy="8.5" r="5.5" />
-              <path d="m13 13 4 4" />
-            </svg>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
-              placeholder="Search documents or file hash"
-              aria-label="Search documents or file hash"
-            />
-          </label>
-        </div>
-
         <section className={styles.welcomeSection}>
           <div>
-            <h2 className={styles.welcomeTitle}>Welcome back, {userName}</h2>
+            <h1 className={styles.welcomeTitle}>Welcome back, {userName}</h1>
             <p className={styles.welcomeSubtitle}>
               {signatureDocuments.length > 0
                 ? `${signatureDocuments.length} ${signatureDocuments.length === 1 ? 'document is' : 'documents are'} waiting on your signature.`
-                : 'Your documents and evidence activity, all in one secure workspace.'}
+                : 'Find a document, upload a new one, or see what needs your attention.'}
             </p>
           </div>
           <div className={styles.welcomeActions}>
@@ -172,12 +153,12 @@ export default function DashboardClient({
           <article className={styles.metricCard}>
             <div className={styles.metricHeading}><span className={styles.metricDotGreen} />Signed</div>
             <h3 className={styles.metricValue}>{metrics.Signed}</h3>
-            <p className={styles.metricDescription}>Sealed with a signature</p>
+            <p className={styles.metricDescription}>Signature completed</p>
           </article>
           <article className={styles.metricCard}>
             <div className={styles.metricHeading}><span className={styles.metricDotBlue} />Filed</div>
             <h3 className={styles.metricValue}>{metrics.Filed}</h3>
-            <p className={styles.metricDescription}>Archived and verifiable</p>
+            <p className={styles.metricDescription}>Filed for safekeeping</p>
           </article>
         </section>
 
@@ -185,7 +166,22 @@ export default function DashboardClient({
           <section className={`${styles.workspaceCard} ${styles.recentDocumentsCard}`}>
             <div className={styles.cardHeader}>
               <h3 className={styles.sectionTitle}>Recent documents</h3>
-              <Link href="/cases" className={styles.viewAllLink}>View all</Link>
+              <div className={styles.recentDocumentTools}>
+                <label className={styles.searchBox}>
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <circle cx="8.5" cy="8.5" r="5.5" />
+                    <path d="m13 13 4 4" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => { setSearch(event.target.value); setPage(1); }}
+                    placeholder="Search documents"
+                    aria-label="Search documents by name or verification code"
+                  />
+                </label>
+                <Link href="/cases" className={styles.viewAllLink}>View all</Link>
+              </div>
             </div>
             {searchableDocuments.length === 0 && (
               <p className={styles.emptyText}>
@@ -199,7 +195,7 @@ export default function DashboardClient({
                     <tr>
                       <th>Document</th>
                       <th>Status</th>
-                      <th>File hash</th>
+                      <th>Verification code</th>
                       <th>Updated</th>
                       <th aria-label="Actions" />
                     </tr>
@@ -263,7 +259,7 @@ export default function DashboardClient({
 
               {showActivity && (
                 <section className={`${styles.workspaceCard} ${styles.activityCard}`}>
-                  <h3 className={styles.sectionTitle}>Audit trail</h3>
+                  <h3 className={styles.sectionTitle}>Recent activity</h3>
                   {activityUnavailable && <p className={styles.emptyAsideText}>The audit trail is temporarily unavailable.</p>}
                   {!activityUnavailable && (
                     <ol className={styles.activityTimeline}>

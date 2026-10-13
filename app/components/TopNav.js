@@ -1,13 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import shared from '../../styles/shared.module.css';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import LawgdaMark from './LawgdaMark';
+
+function getAccountInitial(user) {
+  const displayName = user?.user_metadata?.full_name || user?.user_metadata?.first_name;
+  return String(displayName || user?.email || 'U').trim().charAt(0).toUpperCase();
+}
 
 export default function TopNav() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef(null);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   useEffect(() => {
@@ -28,14 +36,38 @@ export default function TopNav() {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    if (!accountOpen) return undefined;
+
+    function handlePointerDown(event) {
+      if (!accountRef.current?.contains(event.target)) {
+        setAccountOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setAccountOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [accountOpen]);
+
   return (
     <header className={shared.topNav}>
-      <Link href="/landing" className={shared.topNavBrandLink} aria-label="Go to the Lawgda landing page">
+      <Link
+        href={user ? '/dashboard' : '/landing'}
+        className={shared.topNavBrandLink}
+        aria-label={user ? 'Go to your Lawgda workspace' : 'Go to the Lawgda landing page'}
+      >
         <span className={shared.topNavMark} aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 3 19 6v5c0 4.4-2.8 8-7 10-4.2-2-7-5.6-7-10V6l7-3Z" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
+          <LawgdaMark />
         </span>
         <span className={shared.topNavBrandCopy}>
           <span className={shared.topNavBrandName}>LAWGDA</span>
@@ -47,10 +79,31 @@ export default function TopNav() {
           <>
             <Link href="/cases" className={shared.topNavLink}>Documents</Link>
             <Link href="/verify" className={shared.topNavLink}>Verify</Link>
-            <span className={shared.topNavUserEmail}>{user.email}</span>
-            <span className={shared.topNavAvatar} aria-label="Signed in account">
-              {(user.email || 'U').charAt(0).toUpperCase()}
-            </span>
+            <div className={shared.accountControl} ref={accountRef}>
+              <button
+                type="button"
+                className={shared.topNavAvatar}
+                aria-label="Open account options"
+                aria-expanded={accountOpen}
+                aria-controls="top-nav-account-panel"
+                onClick={() => setAccountOpen((open) => !open)}
+              >
+                {getAccountInitial(user)}
+              </button>
+              {accountOpen && (
+                <div className={shared.accountPanel} id="top-nav-account-panel">
+                  <span className={shared.accountPanelLabel}>Signed in as</span>
+                  <span className={shared.accountPanelEmail}>{user.email}</span>
+                  <Link
+                    href="/profile"
+                    className={shared.accountProfileLink}
+                    onClick={() => setAccountOpen(false)}
+                  >
+                    View your profile
+                  </Link>
+                </div>
+              )}
+            </div>
           </>
         )}
         {!loading && !user && (

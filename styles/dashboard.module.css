@@ -404,7 +404,11 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
+  padding:
+    max(0.5rem, env(safe-area-inset-top))
+    max(0.5rem, env(safe-area-inset-right))
+    max(0.5rem, env(safe-area-inset-bottom))
+    max(0.5rem, env(safe-area-inset-left));
   overflow-y: auto;
 }
 
@@ -447,8 +451,8 @@
   z-index: 2;
   top: 0.75rem;
   right: 0.75rem;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -549,11 +553,47 @@
 
 .qrViewport {
   width: 100%;
-  min-height: 260px;
+  height: min(36dvh, 320px);
+  min-height: 170px;
   border: 1px dashed var(--border);
   border-radius: 12px;
-  background: #f8fafc;
+  background: #241b1d;
   overflow: hidden;
+}
+
+.qrScannerDialog {
+  width: min(760px, 100%);
+  max-height: calc(100dvh - 1rem);
+}
+
+.qrScannerDialog .modalHeader {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: -0.15rem -0.15rem 0.4rem;
+  padding: 0.15rem 0.15rem 0.65rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.qrScannerDialog .modalBody {
+  flex: 0 1 auto;
+  overflow-y: auto;
+}
+
+.qrViewport :global(video),
+.qrViewport :global(canvas),
+.qrViewport :global(img) {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover;
+}
+
+@media (max-height: 600px) {
+  .qrViewport {
+    height: 30dvh;
+    min-height: 120px;
+  }
 }
 
 .editorSplitLayout {
@@ -642,46 +682,23 @@
   gap: 1.15rem;
 }
 
-.dashboardTopbar {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.55rem;
-}
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.73rem;
-}
-
-.breadcrumb strong {
-  color: #fff;
-  font-weight: 650;
-}
-
 .searchBox {
-  width: min(100%, 300px);
-  min-height: 36px;
+  width: min(100%, 250px);
+  min-height: 40px;
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  padding: 0 0.65rem;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.86);
+  padding: 0 0.7rem;
+  background: var(--surface);
+  color: var(--muted);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .searchBox:focus-within {
-  border-color: rgba(106, 15, 26, 0.45);
-  box-shadow: 0 0 0 3px rgba(106, 15, 26, 0.08);
+  border-color: rgba(106, 15, 26, 0.55);
+  box-shadow: 0 0 0 3px rgba(106, 15, 26, 0.1);
 }
 
 .searchBox svg {
@@ -700,12 +717,12 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: #fff;
-  font-size: 0.72rem;
+  color: var(--text);
+  font-size: 0.82rem;
 }
 
 .searchBox input::placeholder {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--muted);
 }
 
 .welcomeSection {
@@ -713,14 +730,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 1.2rem;
-  padding: 0.15rem 0 0.65rem;
+  min-height: 150px;
+  padding: clamp(1.2rem, 2.2vw, 1.8rem);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-card);
+  background: linear-gradient(115deg, var(--crimson-dark), var(--crimson));
+  box-shadow: 0 8px 24px rgba(79, 11, 19, 0.14);
 }
 
 .welcomeTitle {
   margin: 0;
   color: #fff;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(1.7rem, 2.4vw, 2.15rem);
+  font-size: clamp(1.9rem, 2.6vw, 2.35rem);
   font-weight: 600;
   letter-spacing: -0.035em;
   line-height: 1.2;
@@ -729,7 +751,7 @@
 .welcomeSubtitle {
   margin: 0.45rem 0 0;
   color: rgba(255, 255, 255, 0.84);
-  font-size: 0.79rem;
+  font-size: 0.92rem;
   line-height: 1.5;
 }
 
@@ -744,9 +766,9 @@
 .welcomeActions .primaryActionButton,
 .welcomeActions .secondaryActionButton,
 .welcomeActions .tertiaryActionButton {
-  min-height: 38px;
-  padding: 0.5rem 0.8rem;
-  font-size: 0.72rem;
+  min-height: 44px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.84rem;
 }
 
 .welcomeActions .primaryActionButton {
@@ -757,6 +779,22 @@
 
 .welcomeActions .primaryActionButton:hover {
   background: #f8ead5;
+}
+
+.welcomeActions .secondaryActionButton {
+  border-color: rgba(106, 15, 26, 0.22);
+  background: var(--surface);
+  color: var(--crimson-dark);
+}
+
+.welcomeActions .secondaryActionButton:hover {
+  background: var(--surface-alt);
+}
+
+.welcomeActions .tertiaryActionButton {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
 }
 
 .tertiaryActionButton {
@@ -810,7 +848,7 @@
   align-items: center;
   gap: 0.4rem;
   color: #4b4443;
-  font-size: 0.7rem;
+  font-size: 0.83rem;
   font-weight: 600;
 }
 
@@ -833,15 +871,15 @@
   margin: 0.15rem 0 0;
   color: #27191a;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1.75rem;
+  font-size: 1.9rem;
   font-weight: 500;
   line-height: 1.15;
 }
 
 .metricDescription {
   margin: 0.35rem 0 0;
-  color: #857d7a;
-  font-size: 0.64rem;
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
 .dashboardColumns {
@@ -874,6 +912,7 @@
 }
 
 .cardHeader {
+  min-width: 0;
   min-height: 42px;
   display: flex;
   align-items: center;
@@ -883,16 +922,30 @@
   border-bottom: 1px solid #f0ece8;
 }
 
+.recentDocumentTools {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex: 0 1 auto;
+}
+
 .sectionTitle {
   color: #302223;
-  font-size: 0.78rem;
+  font-size: 0.94rem;
   font-weight: 700;
 }
 
 .viewAllLink {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
   color: var(--crimson);
-  font-size: 0.67rem;
+  font-size: 0.82rem;
   font-weight: 650;
+  white-space: nowrap;
 }
 
 .viewAllLink:hover {
@@ -917,13 +970,13 @@
 
 .table th {
   color: #817a77;
-  font-size: 0.59rem;
+  font-size: 0.72rem;
   letter-spacing: 0.1em;
 }
 
 .table td {
   color: #46403f;
-  font-size: 0.68rem;
+  font-size: 0.84rem;
 }
 
 .table tbody tr {
@@ -966,7 +1019,7 @@
 .statusBadge {
   min-width: auto;
   padding: 0.22rem 0.48rem;
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 650;
 }
 
@@ -1049,20 +1102,20 @@
 
 .attentionItem strong {
   color: #393230;
-  font-size: 0.67rem;
+  font-size: 0.81rem;
   font-weight: 650;
   line-height: 1.4;
 }
 
 .attentionItem small {
   color: var(--crimson-dark);
-  font-size: 0.61rem;
+  font-size: 0.72rem;
 }
 
 .emptyAsideText {
   margin: 0;
   color: #77716e;
-  font-size: 0.7rem;
+  font-size: 0.82rem;
   line-height: 1.55;
 }
 
@@ -1103,7 +1156,7 @@
   gap: 0.12rem;
   min-width: 0;
   color: #514a47;
-  font-size: 0.65rem;
+  font-size: 0.79rem;
   line-height: 1.4;
 }
 
@@ -1117,7 +1170,7 @@
 
 .activityCopy time {
   color: #88807c;
-  font-size: 0.59rem;
+  font-size: 0.7rem;
 }
 
 @media (max-width: 1000px) {
@@ -1136,14 +1189,8 @@
 }
 
 @media (max-width: 760px) {
-  .dashboardTopbar {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
   .searchBox {
-    width: 100%;
+    width: min(100%, 250px);
   }
 
   .dashboardColumns {
@@ -1152,6 +1199,26 @@
 
   .dashboardAside {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .cardHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .recentDocumentTools,
+  .recentDocumentTools .searchBox {
+    width: 100%;
+  }
+
+  .recentDocumentTools {
+    justify-content: space-between;
+  }
+
+  .welcomeSection {
+    min-height: 0;
   }
 }
 

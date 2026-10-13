@@ -70,10 +70,38 @@
 }
 
 .summaryCard {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--surface-alt);
   padding: 0.7rem;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.summaryCard:hover {
+  border-color: rgba(106, 15, 26, 0.38);
+  background: #fff;
+}
+
+.summaryCard:focus-visible {
+  outline: 3px solid rgba(106, 15, 26, 0.3);
+  outline-offset: 2px;
+}
+
+.summaryCardActive {
+  border-color: rgba(106, 15, 26, 0.42);
+  background: #f8ecee;
+  box-shadow: inset 0 0 0 1px rgba(106, 15, 26, 0.12);
+}
+
+.summaryCardActive:hover {
+  background: #f5e4e7;
 }
 
 .summaryLabel {
@@ -90,27 +118,9 @@
   font-weight: 700;
 }
 
-.filterRow {
-  display: flex;
-  gap: 0.42rem;
-  flex-wrap: wrap;
-}
-
-.filterButton {
-  min-height: 34px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  border-radius: var(--radius-control);
-  font-weight: 600;
-  font-size: 0.8rem;
-  padding: 0.36rem 0.74rem;
-}
-
-.filterButtonActive {
-  color: #fff;
-  border-color: var(--crimson);
-  background: var(--crimson);
+.summaryCardActive .summaryLabel,
+.summaryCardActive .summaryValue {
+  color: var(--crimson-dark);
 }
 
 .searchRow {
