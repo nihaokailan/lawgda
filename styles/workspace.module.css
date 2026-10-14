@@ -1252,3 +1252,92 @@
     font-size: 0.62rem;
   }
 }
+
+/* Back button on the crimson page header (WorkspaceShell) */
+.headerBack {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.headerBack:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.headerBack:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Collapsible sidebar (WorkspaceSidebar) — wide screens only */
+.sidebarToggle {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .container {
+    transition: grid-template-columns 0.2s ease;
+  }
+
+  .container:has(> .sidebarCollapsed) {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+
+  .sidebarToggle {
+    width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0 0.3rem auto;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .sidebarToggle:hover {
+    background: var(--surface-alt);
+    color: var(--crimson-dark);
+  }
+
+  .sidebar.sidebarCollapsed {
+    padding-inline: 0.4rem;
+  }
+
+  .sidebar.sidebarCollapsed .sidebarToggle {
+    margin-inline: auto;
+  }
+
+  .sidebar.sidebarCollapsed .navLink,
+  .sidebar.sidebarCollapsed .signoutButton {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .sidebar.sidebarCollapsed .navLink span,
+  .sidebar.sidebarCollapsed .signoutButton span,
+  .sidebar.sidebarCollapsed .brandText {
+    display: none;
+  }
+
+  .sidebar.sidebarCollapsed .dashboardBrand {
+    justify-content: center;
+  }
+}

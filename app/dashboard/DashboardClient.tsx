@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import StatusBadge from '../components/StatusBadge';
-import DocumentRowActionsDropdown from '../components/DocumentRowActionsDropdown';
 import UploadModal from '../components/UploadModal';
 import VerifyModal from '../components/VerifyModal';
 import ScanModal from '../components/ScanModal';
 import Pagination from '../components/Pagination';
 import SignNowButton from '../components/SignNowButton';
 import styles from '../../styles/dashboard.module.css';
+import { rememberDocumentOrigin } from '../../lib/documentOrigin';
 
 const PAGE_SIZE = 8;
 
@@ -81,6 +81,7 @@ export default function DashboardClient({
   userName: string;
 }) {
   const router = useRouter();
+  useEffect(() => { rememberDocumentOrigin('/dashboard'); }, []);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
   const [isScanOpen, setIsScanOpen] = useState(false);
@@ -197,7 +198,6 @@ export default function DashboardClient({
                       <th>Status</th>
                       <th>Verification code</th>
                       <th>Updated</th>
-                      <th aria-label="Actions" />
                     </tr>
                   </thead>
                   <tbody>
@@ -205,7 +205,10 @@ export default function DashboardClient({
                       <tr
                         key={document.id ?? `${document.title}-${document.createdAt}`}
                         style={{ cursor: document.id ? 'pointer' : undefined }}
-                        onClick={() => { if (document.id) router.push(`/documents/${document.id}/prepare`); }}
+                        tabIndex={document.id ? 0 : undefined}
+                        role={document.id ? 'link' : undefined}
+                        onClick={() => { if (document.id) router.push(`/documents/${document.id}`); }}
+                        onKeyDown={(event) => { if (event.key === 'Enter' && document.id) router.push(`/documents/${document.id}`); }}
                       >
                         <td className={styles.documentNameCell}>
                           <span className={styles.documentGlyph} aria-hidden="true">▤</span>
@@ -222,9 +225,6 @@ export default function DashboardClient({
                         </td>
                         <td className={styles.monoCell}>{hashSnippet(document.sha256Hash)}</td>
                         <td>{formatDate(document.createdAt)}</td>
-                        <td onClick={(event) => event.stopPropagation()}>
-                          <DocumentRowActionsDropdown document={document} openUp={pagedDocuments.length <= 3} />
-                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -6,6 +6,7 @@ import auth from '../../styles/auth.module.css';
 import { getAuthRequestErrorMessage } from '../../lib/authError';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import LawgdaMark from '../components/LawgdaMark';
+import StatusDialog from '../components/StatusDialog';
 
 // A recovery code (and its PKCE verifier) can be exchanged only once. React
 // Strict Mode runs effects twice in development, so share a single exchange
@@ -278,9 +279,7 @@ function SignInPageContent() {
             <p className={auth.helperText}>The password form will appear after you open the reset link from your email.</p>
           )}
 
-          {message && (
-            <p className={`${auth.message} ${error ? auth.messageError : auth.messageSuccess}`}>{message}</p>
-          )}
+          <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
           <p className={auth.footerText}>
             Don&apos;t have an account? <Link href="/signup" className={auth.footerLink}>Create one</Link>
           </p>

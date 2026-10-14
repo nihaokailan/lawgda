@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import shared from '../../styles/shared.module.css';
+import StatusDialog from './StatusDialog';
 
 type Props = {
   documentId: string;
@@ -92,8 +93,8 @@ export default function DocumentDetailsEditor({ documentId, title, caseNumber, t
       )}
 
       {locked && <p className={shared.helpText} style={{ marginBottom: 0 }}>This document is Filed, so its details are locked.</p>}
-      {canEdit && !locked && <p className={shared.helpText} style={{ marginBottom: 0 }}>Edits change details only, never the file. Every change is recorded in the audit trail with the old and new values.</p>}
-      {message && <p role="status" style={{ color: error ? '#991b1b' : '#047857', marginBottom: 0 }}>{message}</p>}
+      {canEdit && !locked && <p className={shared.helpText} style={{ marginBottom: 0 }}>Edits change details only, not the file. Each change is logged.</p>}
+      <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
     </section>
   );
 }

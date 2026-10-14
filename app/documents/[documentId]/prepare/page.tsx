@@ -75,7 +75,7 @@ export default async function DocumentPreparePage({ params }: { params: { docume
     <WorkspaceShell
       profile={profile}
       title="Sign Document"
-      subtitle="Review the document and set the signing workflow."
+      subtitle="Choose who signs, and in what order."
     >
       <PrepareDocumentClient
         document={{

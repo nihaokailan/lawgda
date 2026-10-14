@@ -104,7 +104,7 @@ export default function DocumentVerifier({ documentId, version, documentTitle, s
             ⚠️ Hash Mismatch
           </p>
           <p style={{ margin: '0.5rem 0 0 0', color: '#7f1d1d', fontSize: '0.9rem' }}>
-            The file hash does not match the expected document version. The document may have been modified or corrupted. Do not use this file without further investigation.
+            This file doesn’t match the recorded version. It may have been altered, so don’t rely on it.
           </p>
         </div>
       )}

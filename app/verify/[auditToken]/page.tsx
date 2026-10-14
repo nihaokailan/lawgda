@@ -9,6 +9,7 @@ import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
 import PublicFileCheck from '../../components/PublicFileCheck';
 import TopNav from '../../components/TopNav';
+import BackButton from '../../components/BackButton';
 
 function getMetadata(value: unknown) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -55,6 +56,7 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
               <h1 className={shared.pageTitle}>Document Audit Trail</h1>
               <p className={shared.pageSubtitle}>{String(document.title || document.filename || 'Signed document')}</p>
             </div>
+            <BackButton className={shared.linkButton} fallbackHref="/landing" />
           </header>
           <section className={shared.sectionCard} style={{ marginBottom: '1rem' }}>
             <h2 className={shared.cardTitle}>Audit chain integrity</h2>
@@ -63,7 +65,7 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
                 : integrity === false ? '✗ Broken chain — audit records may have been altered or are missing'
                   : 'Not fully verifiable — historical hashes or audit data unavailable'}
             </p>
-            <p className={shared.helpText}>Checks recorded events and their hash links. Older events without hashes cannot be checked for tampering. To check a separate copy of the PDF, use the file check below.</p>
+            <p className={shared.helpText}>Confirms no recorded event was changed. Older events without hashes can’t be checked. To check a PDF copy, use the file check below.</p>
           </section>
           <PublicFileCheck auditToken={auditToken} />
           <section className={shared.sectionCard} style={{ marginBottom: '1rem' }}>

@@ -5,6 +5,7 @@ import shared from '../../../styles/shared.module.css';
 import { ROLE_LABELS, ROLES } from '../../../lib/roles';
 import { ROLE_SCOPE_DESCRIPTIONS } from '../../../lib/orgMembership';
 import Pagination from '../../components/Pagination';
+import StatusDialog from '../../components/StatusDialog';
 
 const ROLE_OPTIONS = [ROLES.LAWYER, ROLES.STAFF];
 const PAGE_SIZE = 10;
@@ -286,9 +287,7 @@ export default function AdminUsersClient({ currentUserId }) {
 
   return (
     <>
-      {message && (
-        <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>
-      )}
+      <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
 
       <div className={shared.sectionCard} style={{ marginTop: 0 }}>
         <h3 className={shared.cardTitle}>Add a Lawyer or Staff member</h3>

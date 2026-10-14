@@ -201,7 +201,7 @@ export default function Landing() {
           <div className={styles.features}>
             <div className={styles.card}>
               <h4>Keep documents organized</h4>
-              <p>Group legal PDFs into folders and find the files you need without digging through a crowded list.</p>
+              <p>Label legal PDFs with a case number and tags, then search to find the files you need without digging through a crowded list.</p>
             </div>
             <div className={styles.card}>
               <h4>Coordinate signatures</h4>

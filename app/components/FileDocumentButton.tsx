@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import StatusDialog from './StatusDialog';
 import { useRouter } from 'next/navigation';
 
 /** Lawyer action that moves a fully signed document to "Filed" (see /api/documents/[id]/file). */
@@ -51,7 +52,7 @@ export default function FileDocumentButton({
           Mark as Filed
         </button>
       )}
-      {error && <span role="alert" style={{ display: 'block', color: '#991b1b', fontSize: '0.8rem' }}>{error}</span>}
+      <StatusDialog message={error} error onClose={() => setError('')} />
     </span>
   );
 }

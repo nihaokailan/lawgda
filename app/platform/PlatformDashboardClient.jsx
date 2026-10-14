@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import shared from '../../styles/shared.module.css';
 import styles from '../../styles/dashboard.module.css';
+import StatusDialog from '../components/StatusDialog';
 
 /**
  * Default Admin's console: law firms and their Organization Admin accounts
@@ -165,9 +166,7 @@ export default function PlatformDashboardClient({ currentUserId, pendingRequests
         </article>
       </section>
 
-      {message && (
-        <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>{message}</p>
-      )}
+      <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
 
       {(pendingRequestsError || requests.length > 0) && (
         <section className={shared.sectionCard} style={{ marginTop: '1.5rem' }}>

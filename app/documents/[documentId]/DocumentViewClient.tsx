@@ -5,6 +5,7 @@ import shared from '../../../styles/shared.module.css';
 import styles from '../../../styles/dashboard.module.css';
 import DocumentVerifier from '../../components/DocumentVerifier';
 import DocumentLifecycleTimeline from '../../components/DocumentLifecycleTimeline';
+import StatusDialog from '../../components/StatusDialog';
 
 type DocumentViewProps = {
   document: {
@@ -158,7 +159,7 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
       <div className={shared.sectionCard}>
         <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>Download Document</h3>
         <p style={{ color: 'var(--muted)', marginBottom: '1.5rem' }}>
-          Download the document for offline access. You can verify it has not been modified by uploading it below.
+          Save a copy. You can later check it hasn’t changed with Verify below.
         </p>
 
         <button
@@ -176,11 +177,7 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
           </p>
         )}
 
-        {downloadError && (
-          <p style={{ margin: 0, color: '#991b1b', fontSize: '0.9rem' }}>
-            ✗ Error: {downloadError}
-          </p>
-        )}
+        <StatusDialog message={downloadError} error onClose={() => setDownloadError('')} />
       </div>
 
       {/* Verification Component */}

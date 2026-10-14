@@ -8,6 +8,7 @@ import Pagination from '../components/Pagination';
 import SignNowButton from '../components/SignNowButton';
 import styles from '../../styles/documents.module.css';
 import { matchesIndexQuery } from '../../lib/documentIndexing';
+import { rememberDocumentOrigin } from '../../lib/documentOrigin';
 
 const PAGE_SIZE = 8;
 
@@ -62,6 +63,7 @@ const STATUS_PILL_CLASS: Record<string, string> = {
 
 export default function DocumentsWorkspaceClient({ documents }: { documents: DocumentRow[] }) {
   const router = useRouter();
+  useEffect(() => { rememberDocumentOrigin('/cases'); }, []);
   const [visibleDocuments, setVisibleDocuments] = useState(documents);
   const [filter, setFilter] = useState('All Documents');
   const [query, setQuery] = useState('');
@@ -194,8 +196,8 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
                   tabIndex={0}
                   role="link"
                   style={{ cursor: 'pointer' }}
-                  onClick={() => router.push(`/documents/${row.id}/prepare`)}
-                  onKeyDown={(event) => { if (event.key === 'Enter') router.push(`/documents/${row.id}/prepare`); }}
+                  onClick={() => router.push(`/documents/${row.id}`)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') router.push(`/documents/${row.id}`); }}
                 >
                   <td>
                     <div>{row.title}</div>

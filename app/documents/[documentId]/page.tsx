@@ -78,25 +78,22 @@ export default async function DocumentViewPage({ params }: { params: { documentI
     <WorkspaceShell
       profile={profile}
       title="Document Details"
-      subtitle="View document information, download, and verify authenticity."
+      subtitle="Download, verify and track this document."
     >
       <div style={{ marginBottom: '1.5rem' }}>
-        <Link href="/dashboard" className={shared.linkButton}>
-          ← Back to Dashboard
-        </Link>
         <Link
           href={`/documents/${documentId}/${['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'signed' : 'prepare'}`}
-          className={shared.linkButton}
-          style={{ marginLeft: '0.5rem', background: 'var(--crimson)', color: '#fff' }}
+          className={shared.button}
+          style={{ display: 'inline-block', textDecoration: 'none' }}
         >
-          {['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'Signed Document →' : 'Sign Document →'}
+          {['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'Signature Record →' : 'Sign Document →'}
         </Link>
       </div>
       
       {profile.role === ROLES.LAWYER && document.status === 'Signed' && (
         <div className={shared.sectionCard} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
           <h3 style={{ marginTop: 0 }}>Ready to file</h3>
-          <p className={shared.cardText}>Every signer has signed. Mark the document as Filed once it has been submitted — this is recorded in the audit trail and cannot be undone.</p>
+          <p className={shared.cardText}>Everyone has signed. Mark it Filed once submitted. This can’t be undone.</p>
           <FileDocumentButton documentId={documentId} className={shared.button} />
         </div>
       )}
@@ -106,13 +103,13 @@ export default async function DocumentViewPage({ params }: { params: { documentI
           {mySigningTurn.state === 'sign' ? (
             <>
               <h3 style={{ marginTop: 0 }}>Your signature is requested</h3>
-              <p className={shared.cardText}>It is your turn to sign this document. You can sign here, or from the emailed link — only one of them will work.</p>
+              <p className={shared.cardText}>It’s your turn. Sign here or from your email link. Once you use one, the other stops working.</p>
               <SignNowButton documentId={documentId} label="Sign this document" className={shared.button} />
             </>
           ) : (
             <>
               <h3 style={{ marginTop: 0 }}>Waiting for other signers</h3>
-              <p className={shared.cardText}>You are assigned to sign this document. It will be ready for you once the signers before you have signed.</p>
+              <p className={shared.cardText}>You can sign once the signers before you are done.</p>
             </>
           )}
         </div>

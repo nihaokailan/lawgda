@@ -5,7 +5,6 @@ import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
 import { loadMySigningTurns } from '../../lib/signingTurn';
 import { requireDocumentAccess } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
-import { ROLE_LABELS } from '../../lib/roles';
 import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
 
@@ -174,13 +173,12 @@ export default async function CasesPage() {
     })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-  const firstName = profile.full_name?.trim().split(/\s+/)[0] || user.email?.split('@')[0] || 'there';
 
   return (
     <WorkspaceShell
       profile={profile}
       title="Documents"
-      subtitle={`Welcome back, ${firstName}. Role: ${ROLE_LABELS[profile.role] ?? profile.role}.`}
+      subtitle="Search, open and track your documents."
     >
       <RealtimeRefresh />
       <DocumentsWorkspaceClient documents={documents} />

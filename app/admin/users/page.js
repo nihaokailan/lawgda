@@ -25,7 +25,7 @@ export default async function AdminUsersPage() {
     <WorkspaceShell
       profile={profile}
       title="Organization User Provisioning"
-      subtitle={`${orgName} \u2014 assign roles to registered accounts and manage your law firm's Lawyers and Staff.`}
+      subtitle={`${orgName} \u2014 manage your firm's Lawyers and Staff.`}
     >
       <AdminUsersClient currentUserId={user.id} />
     </WorkspaceShell>

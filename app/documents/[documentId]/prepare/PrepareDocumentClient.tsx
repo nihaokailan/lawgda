@@ -6,6 +6,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import prep from './prepare.module.css';
 import shared from '../../../../styles/shared.module.css';
+import StatusDialog from '../../../components/StatusDialog';
 
 type SigningRequest = {
   id: string;
@@ -22,7 +23,7 @@ type Participant = {
   id: string;
   name: string;
   email: string;
-  role: 'Signer' | 'Approver' | 'Viewer';
+  role: 'Signer';
 };
 
 function SortableParticipantCard({
@@ -109,19 +110,6 @@ function SortableParticipantCard({
         )}
       </label>
 
-      <label className={prep.fieldLabel}>
-        Role
-        <select
-          className={prep.fieldInput}
-          value={row.role}
-          onChange={(event) => onUpdate(row.id, 'role', event.target.value)}
-          disabled={locked}
-        >
-          <option value="Signer">Signer</option>
-          <option value="Approver">Approver</option>
-          <option value="Viewer">Viewer</option>
-        </select>
-      </label>
     </div>
   );
 }
@@ -379,7 +367,7 @@ export default function PrepareDocumentClient({
     return (
       <section className={shared.sectionCard}>
         <h2 className={shared.cardTitle}>Signing workflow sent</h2>
-        <p className={shared.cardText}>The document is locked from further drafting changes. Signers will receive their invitations in order.</p>
+        <p className={shared.cardText}>Locked. Signers will be invited in order.</p>
         <div style={{ display: 'grid', gap: '0.6rem', marginTop: '1rem' }}>
           {sentParticipants.map((participant, index) => (
             <div key={participant.id} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.6rem' }}>
@@ -388,7 +376,7 @@ export default function PrepareDocumentClient({
             </div>
           ))}
         </div>
-        {message && <p className={error ? prep.errorText : prep.successText} style={{ marginTop: '1rem' }}>{message}</p>}
+        <StatusDialog message={message} error={error} onClose={() => setMessage('')} />
       </section>
     );
   }
@@ -450,7 +438,7 @@ export default function PrepareDocumentClient({
           >
             <div className={shared.sectionCard} style={{ maxWidth: 480, width: '100%', margin: 0, background: '#fff' }}>
               <h3 id="confirm-send-title" style={{ marginTop: 0 }}>Are you sure the details are correct?</h3>
-              <p className={shared.cardText}>Signing links will be sent in this order and the workflow will be locked:</p>
+              <p className={shared.cardText}>Invitations go out in this order, then the list is locked:</p>
               <ol style={{ paddingLeft: '1.2rem', lineHeight: 1.6 }}>
                 {readyParticipants.map((row) => (
                   <li key={row.id}>{row.name.trim()} &ndash; {row.email.trim().toLowerCase()}</li>
@@ -464,7 +452,7 @@ export default function PrepareDocumentClient({
           </div>
         )}
 
-        {message && <p className={error ? prep.errorText : prep.successText}>{message}</p>}
+        <StatusDialog message={message} error={error} onClose={() => setMessage('')} />
       </aside>
     </section>
   );

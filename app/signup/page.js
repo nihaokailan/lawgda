@@ -7,6 +7,7 @@ import auth from '../../styles/auth.module.css';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getAuthRequestErrorMessage } from '../../lib/authError';
 import LawgdaMark from '../components/LawgdaMark';
+import StatusDialog from '../components/StatusDialog';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -146,9 +147,7 @@ export default function SignupPage() {
             </label>
             <button type="submit" className={auth.primaryButton}>Create account</button>
           </form>
-          {message && (
-            <p className={`${auth.message} ${error ? auth.messageError : auth.messageSuccess}`}>{message}</p>
-          )}
+          <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
           <p className={auth.footerText}>
             Already have an account? <Link href="/signin" className={auth.footerLink}>Sign in</Link>
           </p>

@@ -6,6 +6,7 @@ import shared from '../../styles/shared.module.css';
 import styles from '../../styles/workspace.module.css';
 import { ROLE_LABELS } from '../../lib/roles';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
+import StatusDialog from '../components/StatusDialog';
 
 export default function ProfileClient({ initialProfile, email }) {
   const nameParts = (initialProfile.full_name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -252,11 +253,7 @@ export default function ProfileClient({ initialProfile, email }) {
               )}
             </div>
           </form>
-          {message && (
-            <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>
-              {message}
-            </p>
-          )}
+          <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
         </section>
 
         <aside className={styles.profileDetailsCard}>

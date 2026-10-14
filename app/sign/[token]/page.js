@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import shared from '../../../styles/shared.module.css';
 import shell from '../../../styles/pageShell.module.css';
 import TopNav from '../../components/TopNav';
+import Dialog from '../../components/Dialog';
+import BackButton from '../../components/BackButton';
 
 async function readApiPayload(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -309,7 +311,7 @@ export default function ExternalSignerPage({ params }) {
       return;
     }
 
-    setMessage('Signature recorded successfully. You may close this page.');
+    setMessage('Your signature was recorded successfully. You may now close this page.');
     setP12File(null);
     setP12Passphrase('');
     if (data.signedUrl) {
@@ -339,13 +341,14 @@ export default function ExternalSignerPage({ params }) {
             <div>
               <p className={shared.breadcrumb}>Documents <span aria-hidden="true">/</span> Signature request</p>
               <h1 className={shared.pageTitle}>External signing access</h1>
-              <p className={shared.pageSubtitle}>Review and complete your requested signature.</p>
+              <p className={shared.pageSubtitle}>Review the document, then sign.</p>
             </div>
+            <BackButton className={shared.linkButton} fallbackHref="/landing" />
           </header>
 
           <div className={shared.sectionCard}>
             {loading && <p className={shared.helpText}>Loading signing request...</p>}
-            {!loading && error && <p className={`${shared.message} ${shared.messageError}`}>{error}</p>}
+            {!loading && error && !payload && <p className={`${shared.message} ${shared.messageError}`}>{error}</p>}
             {!loading && payload && (
               <>
                 <h2 className={shared.cardTitle}>You have been requested to sign:</h2>
@@ -385,7 +388,7 @@ export default function ExternalSignerPage({ params }) {
 
                 {payload.requiresSignerVerification && (
                   <p className={shared.helpText} style={{ marginTop: '0.75rem' }}>
-                    Verify signer email to unlock document review.
+                    Confirm your email to view the document.
                   </p>
                 )}
 
@@ -441,7 +444,7 @@ export default function ExternalSignerPage({ params }) {
                             <label><input type="radio" name="signatureInput" checked={signatureInput === 'draw'} disabled={signing} onChange={() => changeSignatureInput('draw')} /> Signature pad</label>
                             <label><input type="radio" name="signatureInput" checked={signatureInput === 'upload'} disabled={signing} onChange={() => changeSignatureInput('upload')} /> Upload photo</label>
                           </div>
-                          <p className={shared.helpText}>Choose one. Switching clears the previous signature.</p>
+                          <p className={shared.helpText}>Switching clears your current signature.</p>
                         </div>
                         {signatureInput === 'draw' ? <div className={shared.fieldLabel}>
                           Draw your signature
@@ -495,7 +498,7 @@ export default function ExternalSignerPage({ params }) {
                             <p><strong>Subject:</strong> {certificateDetails.subject}</p>
                             <p><strong>Valid from:</strong> {new Date(certificateDetails.validFrom).toLocaleString()}</p>
                             <p><strong>Valid until:</strong> {new Date(certificateDetails.validTo).toLocaleString()}</p>
-                            <p className={shared.helpText}>Your name is taken from this certificate. The certificate file and private key are never included in the signed PDF.</p>
+                            <p className={shared.helpText}>Your name comes from this certificate. The certificate file and its key are never added to the PDF.</p>
                           </div>
                         )}
                       </>
@@ -507,32 +510,50 @@ export default function ExternalSignerPage({ params }) {
                   </div>
                 )}
 
-                {confirmOpen && (
-                  <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="confirm-sign-title"
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}
-                  >
-                    <div className={shared.sectionCard} style={{ maxWidth: 460, width: '100%', margin: 0, background: '#fff' }}>
-                      <h3 id="confirm-sign-title" style={{ marginTop: 0 }}>Are you sure the details are correct?</h3>
-                      <p className={shared.cardText}><strong>Document:</strong> {payload.document.filename || 'Document'}</p>
-                      <p className={shared.cardText}><strong>Signer:</strong> {payload.signingRequest.signerName}</p>
-                      <p className={shared.cardText}><strong>Email:</strong> {email.trim().toLowerCase()}</p>
-                      <p className={shared.cardText}><strong>Method:</strong> {signingMethod === 'dict' ? 'Signing certificate' : 'Standard signature'}</p>
-                      <p className={shared.helpText}>Once you sign, this cannot be undone.</p>
-                      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.25rem' }}>
-                        <button type="button" className={shared.linkButton} onClick={() => setConfirmOpen(false)}>No</button>
-                        <button type="button" className={shared.button} onClick={handleSign}>Yes</button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <Dialog
+                  open={confirmOpen}
+                  tone="warning"
+                  title="Are you sure the details are correct?"
+                  onClose={() => setConfirmOpen(false)}
+                  actions={<>
+                    <button type="button" className={shared.linkButton} onClick={() => setConfirmOpen(false)}>No, go back</button>
+                    <button type="button" className={shared.button} onClick={handleSign}>Yes, sign</button>
+                  </>}
+                >
+                  <p><strong>Document:</strong> {payload.document.filename || 'Document'}</p>
+                  <p><strong>Signer:</strong> {payload.signingRequest.signerName}</p>
+                  <p><strong>Email:</strong> {email.trim().toLowerCase()}</p>
+                  <p><strong>Method:</strong> {signingMethod === 'dict' ? 'Signing certificate' : 'Standard signature'}</p>
+                  <p>Once you sign, this cannot be undone.</p>
+                </Dialog>
 
-                {message && <p className={`${shared.message} ${shared.messageSuccess}`}>{message}</p>}
-                {signedUrl && (
+                <Dialog
+                  open={Boolean(error) && !message}
+                  tone="error"
+                  title="Something went wrong"
+                  onClose={() => setError('')}
+                  actions={<button type="button" className={shared.button} onClick={() => setError('')}>OK</button>}
+                >
+                  <p>{error}</p>
+                </Dialog>
+
+                <Dialog
+                  open={Boolean(message)}
+                  tone="success"
+                  title="Document signed"
+                  onClose={() => setMessage('')}
+                  actions={<>
+                    {signedUrl && <a href={signedUrl} target="_blank" rel="noreferrer" className={shared.linkButton}>Open signed PDF</a>}
+                    <button type="button" className={shared.button} onClick={() => setMessage('')}>Done</button>
+                  </>}
+                >
+                  <p>{message}</p>
+                </Dialog>
+
+                {payload.signingRequest.status === 'signed' && !message && (
                   <p className={shared.helpText} style={{ marginTop: '0.75rem' }}>
-                    <a href={signedUrl} target="_blank" rel="noreferrer">Open the signed PDF</a>
+                    You have signed this document.{' '}
+                    {signedUrl && <a href={signedUrl} target="_blank" rel="noreferrer">Open the signed PDF</a>}
                   </p>
                 )}
               </>

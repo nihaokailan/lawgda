@@ -75,6 +75,7 @@ export default function TopNav() {
         </span>
       </Link>
       <nav className={shared.topNavActions}>
+        <Link href="/help" className={shared.topNavLink}>Help</Link>
         {user && (
           <>
             <Link href="/cases" className={shared.topNavLink}>Documents</Link>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import shared from '../../../styles/shared.module.css';
 import styles from '../../../styles/workspace.module.css';
+import StatusDialog from '../../components/StatusDialog';
 
 export default function AdminRequestClient({ profile }) {
   const [organizationName, setOrganizationName] = useState('');
@@ -121,11 +122,7 @@ export default function AdminRequestClient({ profile }) {
               </button>
             </div>
           </form>
-          {message && (
-            <p className={`${shared.message} ${error ? shared.messageError : shared.messageSuccess}`}>
-              {message}
-            </p>
-          )}
+          <StatusDialog message={message} error={Boolean(error)} onClose={() => setMessage('')} />
         </section>
 
         <aside className={styles.requestGuidanceCard}>

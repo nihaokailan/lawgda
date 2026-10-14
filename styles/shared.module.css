@@ -516,3 +516,152 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* Popup dialog (app/components/Dialog.js) */
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(23, 17, 19, 0.5);
+  overflow-y: auto;
+}
+
+.dialogCard {
+  width: min(460px, 100%);
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 50px rgba(17, 24, 39, 0.22);
+  text-align: center;
+}
+
+.dialogIcon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 0.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.dialogIcon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dialogIcon_success {
+  background: #e7f5ea;
+  color: #2e7d32;
+}
+
+.dialogIcon_error {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.dialogIcon_warning {
+  background: #fff6e0;
+  color: #b7791f;
+}
+
+.dialogTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+}
+
+.dialogBody {
+  color: var(--muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.dialogBody p {
+  margin: 0.35rem 0;
+}
+
+.dialogActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+
+.dialogActions > * {
+  min-width: 120px;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Help & FAQs (app/help) */
+.faqSection {
+  margin-top: 1.5rem;
+}
+
+.faqHeading {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  color: var(--crimson-dark);
+}
+
+.faqItem {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  margin-bottom: 0.5rem;
+}
+
+.faqItem summary {
+  cursor: pointer;
+  padding: 0.8rem 1rem;
+  font-weight: 650;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.faqItem summary::-webkit-details-marker {
+  display: none;
+}
+
+.faqItem summary::after {
+  content: '+';
+  color: var(--crimson);
+  font-weight: 700;
+}
+
+.faqItem[open] summary::after {
+  content: '\2212';
+}
+
+.faqItem summary:hover {
+  background: var(--surface-alt);
+}
+
+.faqAnswer {
+  padding: 0 1rem 0.9rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.faqAnswer p,
+.faqAnswer ul,
+.faqAnswer ol {
+  margin: 0;
+}
+
+.faqAnswer li + li {
+  margin-top: 0.25rem;
+}

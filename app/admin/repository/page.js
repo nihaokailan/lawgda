@@ -6,7 +6,7 @@ import { loadOrgRepositoryMetadata, loadOrgName } from '../../../lib/orgReposito
 
 export default async function AdminRepositoryPage() {
   const { profile } = await requireRole([ROLES.ADMIN]);
-  const [orgName, { documents, folders }] = await Promise.all([
+  const [orgName, { documents }] = await Promise.all([
     loadOrgName(profile.org_id),
     loadOrgRepositoryMetadata(profile.org_id),
   ]);
@@ -15,16 +15,9 @@ export default async function AdminRepositoryPage() {
     <WorkspaceShell
       profile={profile}
       title="Repository Oversight"
-      subtitle={`${orgName} \u2014 repository metadata only. Document contents, signatures and keys are never shown to Admins.`}
+      subtitle={`${orgName} \u2014 document list only. Contents, signatures and keys stay private.`}
     >
       <section className={shared.sectionCard}>
-        <h3 style={{ marginTop: 0 }}>Folders ({folders.length})</h3>
-        <ul>
-          {folders.map((folder) => <li key={folder.id}>{folder.name}</li>)}
-        </ul>
-      </section>
-
-      <section className={shared.sectionCard} style={{ marginTop: '1.5rem' }}>
         <h3 style={{ marginTop: 0 }}>Documents ({documents.length})</h3>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
           <thead>

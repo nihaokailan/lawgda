@@ -1,6 +1,9 @@
 import styles from '../../styles/workspace.module.css';
 import WorkspaceSidebar from './WorkspaceSidebar';
 import TopNav from './TopNav';
+import BackButton from './BackButton';
+
+const HOME_BY_ROLE = { admin: '/admin', default_admin: '/platform' };
 
 export default function WorkspaceShell({
   profile,
@@ -25,6 +28,7 @@ export default function WorkspaceShell({
         <section className={`workspace-main-panel ${styles.mainPanel} ${dashboard ? styles.dashboardMainPanel : ''}`}>
           {!dashboard && (
             <header className={`workspace-header ${styles.header}`}>
+              <BackButton className={styles.headerBack} fallbackHref={HOME_BY_ROLE[profile.role] || '/dashboard'} />
               <p className={styles.breadcrumb}>
                 {breadcrumb} <span aria-hidden="true">/</span> {title}
               </p>

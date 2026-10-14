@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import StatusDialog from './StatusDialog';
 
 /** Starts the in-app signing flow for the current Lawyer (see /api/signing-requests/sign-now). */
 export default function SignNowButton({
@@ -43,7 +44,10 @@ export default function SignNowButton({
       <button type="button" className={className} style={style} onClick={start} disabled={busy}>
         {busy ? 'Opening…' : label}
       </button>
-      {error && <span role="alert" style={{ display: 'block', color: '#991b1b', fontSize: '0.8rem' }}>{error}</span>}
+      {/* Kept from reaching the clickable table row this button sits in. */}
+      <span onClick={(event) => event.stopPropagation()}>
+        <StatusDialog message={error} error onClose={() => setError('')} />
+      </span>
     </span>
   );
 }

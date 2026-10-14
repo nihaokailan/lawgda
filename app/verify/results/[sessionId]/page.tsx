@@ -7,6 +7,7 @@ import { getVerificationSession, type VerificationSession } from '../../../../li
 import { readStoredDocument } from '../../../../lib/documentVerification';
 import shared from '../../../../styles/shared.module.css';
 import TopNav from '../../../components/TopNav';
+import BackButton from '../../../components/BackButton';
 import styles from './results.module.css';
 
 type AuditEntry = { id: string; event_type: string; created_at: string; actor_email?: string; details?: Record<string, unknown>; title?: string; lines?: string[]; actorName?: string; actorRole?: string };
@@ -62,7 +63,7 @@ export default function VerificationResults({ params }: { params: { sessionId: s
   return <main className={styles.page}>
     <TopNav />
     <div className={styles.pageContent}>
-    <header className={styles.header}><div><p className={styles.eyebrow}>Verification <span aria-hidden="true">/</span> Results</p><h1>{session.title}</h1></div><Link href="/verify" className={shared.linkButton}>Verify another document</Link></header>
+    <header className={styles.header}><div><p className={styles.eyebrow}>Verification <span aria-hidden="true">/</span> Results</p><h1>{session.title}</h1></div><div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}><BackButton className={shared.linkButton} fallbackHref="/verify" /><Link href="/verify" className={shared.linkButton}>Verify another document</Link></div></header>
     <div className={`${shared.message} ${session.matches ? shared.messageSuccess : shared.messageError}`} role="status">{session.matches ? 'Integrity verified — the checked file matches the recorded document version.' : 'Hash mismatch — the checked file does not match the recorded document version.'}</div>
     <div className={styles.hashSummary}><div><strong>Checked file SHA-256</strong><code>{session.computedHash}</code></div><div><strong>Recorded SHA-256</strong><code>{session.expectedHash}</code></div></div>
     <div className={styles.columns}>

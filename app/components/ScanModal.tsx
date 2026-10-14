@@ -112,7 +112,7 @@ export default function ScanModal({ open, onClose }: ScanModalProps) {
             }
             const uuid = extractUuid(decodedText);
             if (!uuid) {
-              setMessage('QR decoded, but it is not a Lawgda verification link, case folder label or document ID.');
+              setMessage('QR decoded, but it is not a Lawgda verification link or document ID.');
               return;
             }
             await loadAudit(uuid);

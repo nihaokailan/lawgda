@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from '../../styles/workspace.module.css';
@@ -18,6 +19,7 @@ const NAV_ICONS = {
   admin: <><path d="M12 3 20 7v5c0 5-3.4 8-8 10-4.6-2-8-5-8-10V7z" /><path d="m9 12 2 2 4-4" /></>,
   repository: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></>,
   audit: <><path d="M8 3h8l4 4v14H4V3z" /><path d="M8 11h8m-8 4h8m-8 4h5" /></>,
+  help: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6" /><path d="M12 17h.01" /></>,
 };
 
 function NavigationIcon({ href }) {
@@ -29,6 +31,8 @@ function NavigationIcon({ href }) {
         ? 'key'
         : href === '/cases'
           ? 'documents'
+          : href === '/help'
+            ? 'help'
           : href.includes('repository') || href === '/repository'
             ? 'repository'
             : href.includes('audit')
@@ -42,8 +46,32 @@ function NavigationIcon({ href }) {
   );
 }
 
+const COLLAPSED_KEY = 'lawgda.sidebarCollapsed';
+
 export default function WorkspaceSidebar({ role, dashboard = false }) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Remembered per browser; read after mount so server and client render the same markup.
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === '1');
+    } catch {
+      // Storage unavailable (private mode): start expanded.
+    }
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        // Not remembered, but the toggle still works for this page.
+      }
+      return next;
+    });
+  }
 
   const items = [
     { href: '/dashboard', label: 'Dashboard', roles: ['normal', 'lawyer', 'staff'] },
@@ -74,10 +102,11 @@ export default function WorkspaceSidebar({ role, dashboard = false }) {
     },
     { href: '/admin/repository', label: 'Repository', roles: ['admin'] },
     { href: '/admin/audit', label: 'Audit Logs', roles: ['admin'] },
+    { href: '/help', label: 'Help & FAQs', roles: ['normal', 'lawyer', 'staff', 'admin', 'default_admin'] },
   ];
 
   return (
-    <aside className={`workspace-sidebar ${styles.sidebar} ${dashboard ? styles.dashboardSidebar : ''}`}>
+    <aside className={`workspace-sidebar ${styles.sidebar} ${dashboard ? styles.dashboardSidebar : ''} ${collapsed ? styles.sidebarCollapsed : ''}`}>
       {dashboard && (
         <Link href="/landing" className={styles.dashboardBrand} aria-label="Lawgda home">
           <span className={styles.brandMark} aria-hidden="true">L</span>
@@ -88,12 +117,23 @@ export default function WorkspaceSidebar({ role, dashboard = false }) {
         </Link>
       )}
       <div className={styles.sidebarNavigation}>
+        <button
+          type="button"
+          className={styles.sidebarToggle}
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M9 4v16" />
+            <path d={collapsed ? 'm13 10 2 2-2 2' : 'm15 10-2 2 2 2'} />
+          </svg>
+        </button>
         <nav className={styles.nav}>
           {items
             .filter((item) => {
-              if (dashboard && item.href === '/cases') {
-                return false;
-              }
               if (item.roles) {
                 return item.roles.includes(role);
               }
@@ -110,6 +150,7 @@ export default function WorkspaceSidebar({ role, dashboard = false }) {
                 key={item.href}
                 href={item.href}
                 className={`${navItemClass(pathname, item.href)} workspace-navLink ${pathname === item.href || pathname.startsWith(`${item.href}/`) ? 'workspace-navLinkActive' : ''}`}
+                title={collapsed ? (item.label === 'Request Admin' ? 'Request admin access' : item.label) : undefined}
               >
                 <NavigationIcon href={item.href} />
                 <span>{item.label === 'Request Admin' ? 'Request admin access' : item.label}</span>
@@ -119,7 +160,7 @@ export default function WorkspaceSidebar({ role, dashboard = false }) {
       </div>
 
       <form action="/api/auth/signout" method="post" className={`${styles.signoutForm} ${dashboard ? styles.dashboardSignoutForm : ''}`}>
-        <button type="submit" className={`${styles.signoutButton} ${dashboard ? styles.dashboardSignoutButton : ''}`}>
+        <button type="submit" className={`${styles.signoutButton} ${dashboard ? styles.dashboardSignoutButton : ''}`} title={collapsed ? 'Sign out' : undefined}>
           <svg className={styles.navIcon} viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 17l5-5-5-5m5 5H3" />
             <path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" />
