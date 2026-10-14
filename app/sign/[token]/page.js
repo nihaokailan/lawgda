@@ -25,7 +25,8 @@ export default function ExternalSignerPage({ params }) {
   const [error, setError] = useState('');
   const [payload, setPayload] = useState(null);
   const [email, setEmail] = useState('');
-  const [signatureName, setSignatureName] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
   const [signing, setSigning] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [message, setMessage] = useState('');
@@ -157,7 +158,7 @@ export default function ExternalSignerPage({ params }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'preview_certificate', signingMethod: 'dict', email: email.trim().toLowerCase(),
+          action: 'preview_certificate', signingMethod: 'dict',
           p12Base64: await fileToBase64(p12File), p12Passphrase,
         }),
       });
@@ -184,10 +185,9 @@ export default function ExternalSignerPage({ params }) {
     return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('');
   }
 
-  const loadRequest = useCallback(async (emailForVerification = '') => {
-    const query = emailForVerification ? `?email=${encodeURIComponent(emailForVerification)}` : '';
+  const loadRequest = useCallback(async () => {
     try {
-      const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}${query}`);
+      const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}`, { cache: 'no-store' });
       const data = await readApiPayload(response);
       if (!response.ok) {
         throw new Error(data.error || 'Unable to load signing request.');
@@ -206,23 +206,57 @@ export default function ExternalSignerPage({ params }) {
     loadRequest();
   }, [loadRequest]);
 
-  async function handleVerifySigner() {
+  // Email one-time code: proves the signer controls the assigned inbox.
+  async function callVerify(body) {
+    const response = await fetch(`/api/external-sign/${encodeURIComponent(token)}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await readApiPayload(response);
+    if (!response.ok) throw new Error(data.error || 'Unable to verify your email.');
+    return data;
+  }
+
+  async function handleSendCode() {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      setError('Enter the signer email address to continue.');
+      setError('Enter your email address to get a code.');
       return;
     }
-
     setVerifying(true);
     setError('');
-    await loadRequest(normalizedEmail);
-    setVerifying(false);
+    try {
+      await callVerify({ action: 'send', email: normalizedEmail });
+      setCodeSent(true);
+      setCode('');
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : 'Unable to send a code.');
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function handleCheckCode() {
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
+    setVerifying(true);
+    setError('');
+    try {
+      await callVerify({ action: 'check', code: code.trim() });
+      await loadRequest();
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : 'Unable to verify the code.');
+    } finally {
+      setVerifying(false);
+    }
   }
 
   function isReadyToSign() {
-    if (!email.trim()) return false;
     if (signingMethod === 'dict') return Boolean(p12File && p12Passphrase);
-    return Boolean(signatureName.trim() && signatureDataUrl);
+    return Boolean(signatureDataUrl);
   }
 
   // Signing is irreversible, so ask for explicit confirmation first. Missing
@@ -240,18 +274,6 @@ export default function ExternalSignerPage({ params }) {
     setSigning(true);
     setError('');
     setMessage('');
-
-    if (!email.trim()) {
-      setSigning(false);
-      setError('Please enter your signer email to continue.');
-      return;
-    }
-
-    if (signingMethod === 'standard' && !signatureName.trim()) {
-      setSigning(false);
-      setError('Type your full legal name before signing the document.');
-      return;
-    }
 
     if (signingMethod === 'dict') {
       if (!p12File || !p12Passphrase) {
@@ -275,8 +297,6 @@ export default function ExternalSignerPage({ params }) {
     }
 
     const requestBody = {
-      email: email.trim().toLowerCase(),
-      signatureName: signatureName.trim(),
       signingMethod,
       documentHash,
     };
@@ -357,21 +377,53 @@ export default function ExternalSignerPage({ params }) {
                 <p className={shared.cardText}>Signer: {payload.signingRequest.signerName}</p>
                 <p className={shared.cardText}>Status: {payload.signingRequest.status}</p>
 
-                <div className={shared.formGrid} style={{ marginTop: '1rem' }}>
-                  <label className={shared.fieldLabel}>
-                    Confirm signer email
-                    <input
-                      className={shared.input}
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder={payload.signingRequest.signerEmail}
-                    />
-                  </label>
-                  <button type="button" className={shared.linkButton} onClick={handleVerifySigner} disabled={verifying}>
-                    {verifying ? 'Verifying...' : 'Verify Signer'}
-                  </button>
-                </div>
+                {payload.requiresSignerVerification ? (
+                  <div className={shared.formGrid} style={{ marginTop: '1rem' }}>
+                    {!codeSent ? (
+                      <>
+                        <label className={shared.fieldLabel}>
+                          Your email
+                          <input
+                            className={shared.input}
+                            type="email"
+                            autoComplete="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            placeholder={payload.signingRequest.signerEmail}
+                          />
+                        </label>
+                        <p className={shared.helpText} style={{ margin: 0 }}>We&apos;ll email you a 6-digit code to confirm it&apos;s you.</p>
+                        <button type="button" className={shared.button} onClick={handleSendCode} disabled={verifying}>
+                          {verifying ? 'Sending...' : 'Send code'}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <label className={shared.fieldLabel}>
+                          Enter the code sent to {email.trim().toLowerCase()}
+                          <input
+                            className={shared.input}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            value={code}
+                            onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+                            placeholder="123456"
+                          />
+                        </label>
+                        <button type="button" className={shared.button} onClick={handleCheckCode} disabled={verifying}>
+                          {verifying ? 'Checking...' : 'Verify'}
+                        </button>
+                        <div className={shared.buttonGroup}>
+                          <button type="button" className={shared.textButton} onClick={handleSendCode} disabled={verifying}>Resend code</button>
+                          <button type="button" className={shared.textButton} onClick={() => { setCodeSent(false); setCode(''); }} disabled={verifying}>Use a different email</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className={shared.helpText} style={{ marginTop: '0.75rem' }}>✓ Verified as {payload.signingRequest.signerEmail}</p>
+                )}
 
                 {payload.document.reviewUrl && (
                   <div style={{ marginTop: '1rem' }}>
@@ -386,12 +438,6 @@ export default function ExternalSignerPage({ params }) {
                   </div>
                 )}
 
-                {payload.requiresSignerVerification && (
-                  <p className={shared.helpText} style={{ marginTop: '0.75rem' }}>
-                    Confirm your email to view the document.
-                  </p>
-                )}
-
                 {payload.document.sha256Hash && (
                   <p className={shared.helpText} style={{ marginTop: '1rem' }}>
                     SHA-256: {payload.document.sha256Hash}
@@ -400,15 +446,11 @@ export default function ExternalSignerPage({ params }) {
 
                 {payload.signingRequest.status !== 'signed' && payload.document.reviewUrl && (
                   <div className={shared.formGrid} style={{ marginTop: '1rem' }}>
-                    {signingMethod === 'standard' && <label className={shared.fieldLabel}>
-                      Type your full legal name as your signature
-                      <input
-                        className={shared.input}
-                        value={signatureName}
-                        onChange={(event) => setSignatureName(event.target.value)}
-                        placeholder={payload.signingRequest.signerName}
-                      />
-                    </label>}
+                    {signingMethod === 'standard' && <div className={shared.fieldLabel}>
+                      Signing as
+                      <p className={shared.cardText} style={{ margin: '0.25rem 0 0', fontWeight: 700 }}>{payload.signingRequest.signerName}</p>
+                      <p className={shared.helpText} style={{ margin: 0 }}>Set by the person who sent this request.</p>
+                    </div>}
 
                     <div className={shared.fieldLabel}>
                       How would you like to sign?
@@ -522,7 +564,7 @@ export default function ExternalSignerPage({ params }) {
                 >
                   <p><strong>Document:</strong> {payload.document.filename || 'Document'}</p>
                   <p><strong>Signer:</strong> {payload.signingRequest.signerName}</p>
-                  <p><strong>Email:</strong> {email.trim().toLowerCase()}</p>
+                  <p><strong>Email:</strong> {payload.signingRequest.signerEmail}</p>
                   <p><strong>Method:</strong> {signingMethod === 'dict' ? 'Signing certificate' : 'Standard signature'}</p>
                   <p>Once you sign, this cannot be undone.</p>
                 </Dialog>

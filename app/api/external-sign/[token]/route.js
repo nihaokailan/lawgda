@@ -13,6 +13,7 @@ import { VaultError } from '../../../../lib/vault';
 import { extractKeyAndCertFromP12 } from '../../../../lib/pkcs12';
 import { sendSigningInvitationEmail } from '../../../../lib/email';
 import { getPublicSiteUrl } from '../../../../lib/siteUrl';
+import { hasVerifiedSignerSession, maskEmail } from '../../../../lib/signerVerification';
 import { randomBytes } from 'node:crypto';
 import QRCode from 'qrcode';
 
@@ -31,8 +32,6 @@ function buildError(reason) {
 export async function GET(request, { params }) {
   const supabaseAdmin = getSupabaseAdmin();
   const token = params?.token;
-  const url = new URL(request.url);
-  const providedEmail = String(url.searchParams.get('email') ?? '').trim().toLowerCase();
   const { request: signingRequest, reason } = await resolveSigningRequestByToken(token);
 
   if (!signingRequest || reason) {
@@ -80,10 +79,11 @@ export async function GET(request, { params }) {
 
   const requestedByName = requesterProfile?.full_name || requesterProfile?.email || 'Lawgda Team';
 
-  const emailMatches = providedEmail && providedEmail === String(signingRequest.signer_email).toLowerCase();
+  // The document is only shown after the signer proves the email with a code.
+  const signerVerified = await hasVerifiedSignerSession(supabaseAdmin, request, signingRequest.id);
   let reviewUrl = null;
 
-  if (emailMatches) {
+  if (signerVerified) {
     const metadata = document.metadata && typeof document.metadata === 'object' && !Array.isArray(document.metadata)
       ? document.metadata
       : {};
@@ -93,25 +93,14 @@ export async function GET(request, { params }) {
     }
 
     // Served through Lawgda (never a raw Storage URL) so the delivery is audited.
-    reviewUrl = `/api/external-sign/${encodeURIComponent(token)}/file?version=review&email=${encodeURIComponent(providedEmail)}`;
-
-    await logSigningAuditEvent({
-      signingRequestId: signingRequest.id,
-      documentId: signingRequest.document_id,
-      eventType: 'signer_verified',
-      actorType: 'external_signer',
-      actorEmail: providedEmail,
-      details: {
-        context: 'document_access',
-      },
-    });
+    reviewUrl = `/api/external-sign/${encodeURIComponent(token)}/file?version=review`;
   }
 
   return NextResponse.json({
     signingRequest: {
       id: signingRequest.id,
       signerName: signingRequest.signer_name,
-      signerEmail: signingRequest.signer_email,
+      signerEmail: signerVerified ? signingRequest.signer_email : maskEmail(signingRequest.signer_email),
       expiresAt: signingRequest.expires_at,
       status: signingRequest.status,
       requestedBy: requestedByName,
@@ -123,7 +112,7 @@ export async function GET(request, { params }) {
       sha256Hash: document.sha256_hash,
       reviewUrl,
     },
-    requiresSignerVerification: !emailMatches,
+    requiresSignerVerification: !signerVerified,
   });
 }
 
@@ -131,8 +120,6 @@ export async function POST(request, { params }) {
   const supabaseAdmin = getSupabaseAdmin();
   const token = params?.token;
   const body = await request.json();
-  const providedEmail = String(body?.email ?? '').trim().toLowerCase();
-  let signatureName = String(body?.signatureName ?? '').trim();
   const signatureDataUrl = String(body?.signatureDataUrl ?? '').trim();
   const signingMethod = body?.signingMethod === 'dict' ? 'dict' : 'standard';
   const clientDocumentHash = String(body?.documentHash ?? '').trim().toLowerCase();
@@ -153,13 +140,13 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: buildError(reason ?? 'invalid_token'), reason }, { status: 400 });
   }
 
-  if (!providedEmail || providedEmail !== String(signingRequest.signer_email).toLowerCase()) {
-    return NextResponse.json({ error: 'Signer identity could not be verified.' }, { status: 403 });
+  // Identity comes from the verified email-code session, never from the request body.
+  if (!(await hasVerifiedSignerSession(supabaseAdmin, request, signingRequest.id))) {
+    return NextResponse.json({ error: 'Please verify your email with the code we sent before signing.' }, { status: 403 });
   }
-
-  if (signingMethod !== 'dict' && !signatureName) {
-    return NextResponse.json({ error: 'Type your full name to sign the document.' }, { status: 400 });
-  }
+  const providedEmail = String(signingRequest.signer_email).toLowerCase();
+  // A standard signature always uses the name the document owner assigned.
+  let signatureName = String(signingRequest.signer_name || '').trim();
 
   if (signingMethod === 'dict') {
     if (!p12Base64 || !p12Passphrase) {

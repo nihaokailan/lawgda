@@ -7,6 +7,7 @@ import { getAuthRequestErrorMessage } from '../../lib/authError';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import LawgdaMark from '../components/LawgdaMark';
 import StatusDialog from '../components/StatusDialog';
+import { getBrowserSiteUrl } from '../../lib/siteUrl';
 
 // A recovery code (and its PKCE verifier) can be exchanged only once. React
 // Strict Mode runs effects twice in development, so share a single exchange
@@ -140,7 +141,7 @@ function SignInPageContent() {
     setMessage('');
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-      redirectTo: `${window.location.origin}/signin?type=recovery`,
+      redirectTo: `${getBrowserSiteUrl()}/signin?type=recovery`,
     });
 
     setResetLoading(false);

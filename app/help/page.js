@@ -79,8 +79,8 @@ const SECTIONS = [
         a: (
           <ol>
             <li>Open the link in your email. If you have an account, you can also click <strong>Sign now</strong> on your Dashboard.</li>
-            <li>Confirm your email to view the document.</li>
-            <li>Choose <strong>Standard signature</strong> (draw or upload a photo) or <strong>Signing certificate</strong> (your .p12 file and passphrase).</li>
+            <li>Enter your email and click <strong>Send code</strong>, then type the 6-digit code from your inbox. (Not needed when you use <strong>Sign now</strong>.)</li>
+            <li>Choose <strong>Standard signature</strong> (draw or upload a photo) or <strong>Signing certificate</strong> (your .p12 file and passphrase). Your name is the one the sender assigned.</li>
             <li>Click <strong>Sign Document</strong> and confirm.</li>
           </ol>
         ),
@@ -88,6 +88,10 @@ const SECTIONS = [
       {
         q: 'Standard signature or signing certificate?',
         a: <p>Both are recorded and verifiable. Use a <strong>signing certificate</strong> (such as one issued by DICT) when you need your identity tied to a government-issued certificate. Otherwise, a standard signature is enough.</p>,
+      },
+      {
+        q: 'I didn’t get my code.',
+        a: <p>Check your spam folder. Codes expire after 10 minutes. Click <strong>Resend code</strong> for a new one (once a minute). After 5 wrong tries, request a new code.</p>,
       },
       {
         q: 'Why can’t I sign yet?',

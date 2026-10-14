@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '../../../../../lib/supabaseAdmin';
 import { hashSigningToken } from '../../../../../lib/signingTokens';
 import { resolveSigningRequestByToken } from '../../../../../lib/signingValidation';
 import { logDocumentAuditEventOnce } from '../../../../../lib/auditLog';
+import { hasVerifiedSignerSession } from '../../../../../lib/signerVerification';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,7 @@ function metadataOf(document) {
  * The only way a signer (internal or external) receives a document file.
  * Raw Storage URLs are never handed out, so every delivery to a signer's
  * device is recorded in the document's hash-chained audit trail:
- *   ?version=review&email=…  the current document, before signing
+ *   ?version=review          the current document, before signing (verified signers only)
  *   ?version=signed          the signer's own signed copy, after signing
  */
 export async function GET(request, { params }) {
@@ -34,8 +35,7 @@ export async function GET(request, { params }) {
 
   if (version === 'review') {
     const { request: pending, reason } = await resolveSigningRequestByToken(token);
-    const email = String(url.searchParams.get('email') || '').trim().toLowerCase();
-    if (!pending || reason || email !== String(pending.signer_email).toLowerCase()) {
+    if (!pending || reason || !(await hasVerifiedSignerSession(supabaseAdmin, request, pending.id))) {
       return NextResponse.json({ error: 'This document is not available.' }, { status: 403 });
     }
     signingRequest = pending;

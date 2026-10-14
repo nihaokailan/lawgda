@@ -26,7 +26,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (isAuthRoute && user) {
+  // A password-reset link must reach the sign-in page's new-password form,
+  // even in a browser that is already signed in.
+  const isPasswordRecovery = request.nextUrl.searchParams.get('type') === 'recovery';
+
+  if (isAuthRoute && user && !isPasswordRecovery) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/dashboard';
     redirectUrl.searchParams.delete('from');

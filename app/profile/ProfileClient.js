@@ -16,11 +16,9 @@ export default function ProfileClient({ initialProfile, email }) {
   const role = initialProfile.role ?? 'normal';
   const organizationId = initialProfile.org_id ?? '';
   const [isEditing, setIsEditing] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const [codeVerified, setCodeVerified] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,42 +30,29 @@ export default function ProfileClient({ initialProfile, email }) {
     setMessage('');
     setError(false);
 
-    if (newPassword !== confirmPassword) {
-      setError(true);
-      setMessage('New password and confirmation password do not match.');
-      setSaving(false);
-      return;
-    }
-
-    if (newPassword && !codeSent) {
-      await sendConfirmationCode();
-      setSaving(false);
-      return;
-    }
-
-    if (newPassword && !verificationCode.trim()) {
-      setError(true);
-      setMessage('Enter the confirmation code sent to your email.');
-      setSaving(false);
-      return;
-    }
-
-    if (newPassword && !codeVerified) {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: verificationCode.trim(),
-        type: 'email',
-      });
-      if (verifyError) {
+    if (newPassword) {
+      const problem = newPassword.length < 6
+        ? 'New password must be at least 6 characters.'
+        : newPassword !== confirmPassword
+          ? 'New password and confirmation do not match.'
+          : !currentPassword
+            ? 'Enter your current password to change it.'
+            : '';
+      if (problem) {
         setError(true);
-        setMessage(`Invalid confirmation code: ${verifyError.message}`);
+        setMessage(problem);
         setSaving(false);
         return;
       }
-      setCodeVerified(true);
-      setMessage('Email confirmed. Click Save Profile again to apply the password change.');
-      setSaving(false);
-      return;
+
+      // Re-check the current password before allowing a change.
+      const { error: currentPasswordError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (currentPasswordError) {
+        setError(true);
+        setMessage('Your current password is incorrect.');
+        setSaving(false);
+        return;
+      }
     }
 
     const profileUpdate = {
@@ -108,25 +93,10 @@ export default function ProfileClient({ initialProfile, email }) {
 
     setSaving(false);
     setIsEditing(false);
-    setMessage(newPassword ? 'Profile and password updated. Check your email for confirmation.' : 'Profile updated successfully.');
-  }
-
-  async function sendConfirmationCode() {
-    setMessage('');
-    setError(false);
-    const { error: codeError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
-
-    if (codeError) {
-      setError(true);
-      setMessage(`Unable to send confirmation code: ${codeError.message}`);
-      return;
-    }
-
-    setCodeSent(true);
-    setMessage('A confirmation code was sent to your email.');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setMessage(newPassword ? 'Profile and password updated.' : 'Profile updated.');
   }
 
   return (
@@ -190,44 +160,42 @@ export default function ProfileClient({ initialProfile, email }) {
 
               <div className={styles.profilePasswordFields}>
                 <label className={shared.fieldLabel}>
-                  Change password
+                  New password
                   <input
                     className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
                     type="password"
+                    autoComplete="new-password"
                     value={newPassword}
-                    onChange={(event) => {
-                      setNewPassword(event.target.value);
-                      setCodeSent(false);
-                      setCodeVerified(false);
-                    }}
+                    onChange={(event) => setNewPassword(event.target.value)}
                     disabled={!isEditing}
-                    placeholder="Leave blank to keep current password"
+                    placeholder="Leave blank to keep your password"
                     minLength={6}
                   />
                 </label>
-                <p className={styles.profileHint}>Only fill this in if you want to set a new password.</p>
                 {newPassword && isEditing && (
-                  <label className={shared.fieldLabel}>
-                    Confirm password
-                    <input
-                      className={`${shared.input} ${isEditing ? styles.profileEditable : styles.profileLocked}`}
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                      minLength={6}
-                    />
-                  </label>
-                )}
-                {codeSent && !codeVerified && isEditing && (
-                  <label className={shared.fieldLabel}>
-                    Confirmation code
-                    <input
-                      className={`${shared.input} ${styles.profileEditable}`}
-                      value={verificationCode}
-                      onChange={(event) => setVerificationCode(event.target.value)}
-                      inputMode="numeric"
-                    />
-                  </label>
+                  <>
+                    <label className={shared.fieldLabel}>
+                      Confirm new password
+                      <input
+                        className={`${shared.input} ${styles.profileEditable}`}
+                        type="password"
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        minLength={6}
+                      />
+                    </label>
+                    <label className={shared.fieldLabel}>
+                      Current password
+                      <input
+                        className={`${shared.input} ${styles.profileEditable}`}
+                        type="password"
+                        autoComplete="current-password"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                      />
+                    </label>
+                  </>
                 )}
               </div>
             </div>
@@ -243,7 +211,7 @@ export default function ProfileClient({ initialProfile, email }) {
                 </button>
               ) : (
                 <>
-                  <button type="button" className={shared.linkButton} onClick={() => setIsEditing(false)}>
+                  <button type="button" className={shared.linkButton} onClick={() => { setIsEditing(false); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}>
                     Cancel
                   </button>
                   <button className={shared.button} type="submit" disabled={saving}>

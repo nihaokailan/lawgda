@@ -8,6 +8,7 @@ import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { getAuthRequestErrorMessage } from '../../lib/authError';
 import LawgdaMark from '../components/LawgdaMark';
 import StatusDialog from '../components/StatusDialog';
+import { getBrowserSiteUrl } from '../../lib/siteUrl';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -43,7 +44,7 @@ export default function SignupPage() {
             last_name: lastName.trim(),
             full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           },
-          emailRedirectTo: `${window.location.origin}/signin`,
+          emailRedirectTo: `${getBrowserSiteUrl()}/signin`,
         },
       });
 

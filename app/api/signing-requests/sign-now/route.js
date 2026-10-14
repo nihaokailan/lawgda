@@ -6,6 +6,7 @@ import { loadAccessibleDocument } from '../../../../lib/documentAccess';
 import { loadMySigningTurns } from '../../../../lib/signingTurn';
 import { generateSigningToken, hashSigningToken } from '../../../../lib/signingTokens';
 import { logDocumentAuditEvent } from '../../../../lib/auditLog';
+import { setSignerSessionCookie, startSignerSession } from '../../../../lib/signerVerification';
 
 /**
  * Lets a Lawyer start signing from inside Lawgda instead of the emailed link.
@@ -66,7 +67,13 @@ async function handle(request) {
     details: { signing_request_id: turn.requestId },
   }).catch((failure) => console.error('[audit] Unable to record in-app signing start:', failure));
 
-  return NextResponse.json({ url: `/sign/${encodeURIComponent(token)}` }, { headers: { 'Cache-Control': 'no-store' } });
+  // The Lawyer is already signed in as this signer, so no email code is needed.
+  const sessionToken = await startSignerSession(admin, turn.requestId);
+  return setSignerSessionCookie(
+    NextResponse.json({ url: `/sign/${encodeURIComponent(token)}` }, { headers: { 'Cache-Control': 'no-store' } }),
+    token,
+    sessionToken,
+  );
 }
 
 export async function POST(request) {
