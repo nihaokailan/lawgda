@@ -51,66 +51,68 @@ function getFirstName(fullName: string | null | undefined, email: string | null 
   return email?.split('@')[0] ?? 'there';
 }
 
+// Uploads always create their document row, so the backfill only catches rare
+// orphaned files. Run it at most every 10 minutes per user (per server
+// instance) instead of on every load and every realtime refresh.
+const BACKFILL_INTERVAL_MS = 10 * 60 * 1000;
+const lastBackfillAt = new Map<string, number>();
+
 async function ensureStorageBackfillForUser(supabase: ReturnType<typeof createSupabaseServerClient>, userId: string) {
+  const now = Date.now();
+  if (now - (lastBackfillAt.get(userId) ?? 0) < BACKFILL_INTERVAL_MS) return;
+  lastBackfillAt.set(userId, now);
+
   const metadataClient = getSupabaseAdmin();
   const storageBuckets = ['secure_docs', 'evidence', 'org-documents'];
 
-  for (const bucket of storageBuckets) {
-    const storageItems = await listUserStorageFiles(supabase, bucket, userId);
-    for (const item of storageItems ?? []) {
-      if (!item.name || item.name.endsWith('/')) continue;
+  await Promise.all(storageBuckets.map(async (bucket) => {
+    const storageItems = (await listUserStorageFiles(supabase, bucket, userId))
+      .filter((item) => item.name && !item.name.endsWith('/'));
+    if (!storageItems.length) return;
 
-      const path = item.path;
-      const title = path.split('/').pop() || path;
+    // Look paths up in batches instead of one query per file. Batches keep the
+    // request URL short; `.in()` quotes each value, so unusual file names
+    // cannot alter the filter.
+    const paths = storageItems.map((item) => item.path as string);
+    const batches: string[][] = [];
+    for (let i = 0; i < paths.length; i += 40) batches.push(paths.slice(i, i + 40));
+    const lookups = await Promise.all(batches.flatMap((batch) => [
+      metadataClient.from('documents').select('path').in('path', batch),
+      metadataClient.from('documents').select('file_path').in('file_path', batch),
+    ]));
+    if (lookups.some((lookup) => lookup.error)) return;
+
+    const knownPaths = new Set<string>(
+      lookups.flatMap((lookup) => (lookup.data ?? []).map((row: Record<string, unknown>) => String(row.path ?? row.file_path)))
+    );
+
+    await Promise.all(storageItems.filter((item) => !knownPaths.has(item.path)).map((item) => {
+      const path = item.path as string;
       const ownerHint = path.split('/')[0];
       const ownerId = /^\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b$/i.test(ownerHint)
         ? ownerHint
         : userId;
 
-      const { data: existingRows, error: checkError } = await metadataClient
-        .from('documents')
-        .select('id')
-        .or(`path.eq.${path},file_path.eq.${path}`)
-        .limit(1);
-
-      if (!checkError && (existingRows ?? []).length > 0) continue;
-
-      const candidates = [
-        {
-          owner_id: ownerId,
-          user_id: ownerId,
-          uploaded_by: ownerId,
-          bucket,
-          path,
-          file_path: path,
-          title,
-          status: 'Drafting',
-          created_at: item.updated_at ?? item.created_at ?? new Date().toISOString(),
-        },
-        {
-          owner_id: ownerId,
-          user_id: ownerId,
-          uploaded_by: ownerId,
-          bucket,
-          path,
-          file_path: path,
-          title,
-          status: 'Drafting',
-          created_at: item.updated_at ?? item.created_at ?? new Date().toISOString(),
-        },
-      ];
-
-      for (const candidate of candidates) {
-        const { error } = await metadataClient.from('documents').insert([candidate]);
-        if (!error) break;
-      }
-    }
-  }
+      return metadataClient.from('documents').insert([{
+        owner_id: ownerId,
+        user_id: ownerId,
+        uploaded_by: ownerId,
+        bucket,
+        path,
+        file_path: path,
+        title: path.split('/').pop() || path,
+        status: 'Drafting',
+        created_at: item.updated_at ?? item.created_at ?? new Date().toISOString(),
+      }]);
+    }));
+  }));
 }
 
 async function loadDashboardData(userId: string, orgId: string | null, email: string | null) {
   const supabase = createSupabaseServerClient();
   const supabaseAdmin = getSupabaseAdmin();
+  // Shared documents don't depend on the backfill, so load them alongside it.
+  const sharedDocumentsPromise = loadDocumentsSharedWithUser(supabaseAdmin, userId, orgId);
   await ensureStorageBackfillForUser(supabase, userId);
   let docsResult = await supabase
     .from('documents')
@@ -130,7 +132,7 @@ async function loadDashboardData(userId: string, orgId: string | null, email: st
     ));
   }
 
-  const sharedDocuments = await loadDocumentsSharedWithUser(supabaseAdmin, userId, orgId);
+  const sharedDocuments = await sharedDocumentsPromise;
   const rows = [...(docsResult.data ?? []), ...sharedDocuments].sort(
     (a, b) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime()
   ) as Array<Record<string, unknown>>;

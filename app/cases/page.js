@@ -5,7 +5,6 @@ import { loadDocumentsSharedWithUser } from '../../lib/sharedDocuments';
 import { loadMySigningTurns } from '../../lib/signingTurn';
 import { requireDocumentAccess } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
-import { listUserStorageFiles } from '../../lib/listUserStorageFiles';
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
 
 export const revalidate = 0; // Always fetch fresh data, no caching
@@ -74,30 +73,6 @@ async function loadAdminDocumentFallback(userId) {
   ));
 }
 
-async function loadUserStorageDocuments(supabase, userId) {
-  const buckets = ['secure_docs', 'evidence', 'org-documents'];
-  const storageDocuments = [];
-
-  for (const bucket of buckets) {
-    const files = await listUserStorageFiles(supabase, bucket, userId);
-    storageDocuments.push(...files.map((file) => ({
-      id: `${bucket}:${file.path}`,
-      title: file.name,
-      filename: file.name,
-      bucket,
-      path: file.path,
-      file_path: file.path,
-      status: 'Drafting',
-      created_at: file.updated_at ?? file.created_at ?? new Date().toISOString(),
-      owner_id: userId,
-      user_id: userId,
-      uploaded_by: userId,
-    })));
-  }
-
-  return storageDocuments;
-}
-
 function getInitials(label) {
   const source = String(label || 'U').trim();
   const parts = source.split(/[\s@._-]+/).filter(Boolean);
@@ -109,13 +84,16 @@ export default async function CasesPage() {
   const { user, profile } = await requireDocumentAccess('/admin/repository');
   const supabase = createSupabaseServerClient();
 
-  let rawDocs = await loadDocumentsForCasesPage(supabase);
+  // Independent loads, run concurrently. Stored files without a document row
+  // are given one by the dashboard's backfill, so Storage isn't listed here.
+  let [rawDocs, sharedDocs] = await Promise.all([
+    loadDocumentsForCasesPage(supabase),
+    loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id),
+  ]);
   if (!rawDocs.length) {
     rawDocs = await loadAdminDocumentFallback(user.id);
   }
-  const storageDocs = await loadUserStorageDocuments(supabase, user.id);
-  const sharedDocs = await loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id);
-  const allDocs = [...rawDocs, ...sharedDocs, ...storageDocs];
+  const allDocs = [...rawDocs, ...sharedDocs];
 
   const userOwnedDocs = allDocs.filter((record) => {
     const ownerId = record.owner_id ?? record.user_id ?? null;

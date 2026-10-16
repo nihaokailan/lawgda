@@ -65,14 +65,16 @@ export default async function DocumentViewPage({ params }: { params: { documentI
     redirect('/dashboard');
   }
 
-  const mySigningTurn = (await loadMySigningTurns(getSupabaseAdmin(), user.email, [documentId])).get(documentId) ?? null;
-
-  await logDocumentAuditEvent({
-    documentId,
-    actorUserId: user.id,
-    eventType: 'document_viewed',
-    details: { context: 'document_details_page' },
-  });
+  const [turns] = await Promise.all([
+    loadMySigningTurns(getSupabaseAdmin(), user.email, [documentId]),
+    logDocumentAuditEvent({
+      documentId,
+      actorUserId: user.id,
+      eventType: 'document_viewed',
+      details: { context: 'document_details_page' },
+    }),
+  ]);
+  const mySigningTurn = turns.get(documentId) ?? null;
 
   return (
     <WorkspaceShell
