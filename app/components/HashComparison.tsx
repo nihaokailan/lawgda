@@ -3,9 +3,9 @@ import styles from '../../styles/hashResult.module.css';
 type Verdict = 'match' | 'mismatch' | 'earlier';
 
 const VERDICT = {
-  match: { word: 'MATCH', className: styles.match, boxClass: styles.hashBoxMatch, icon: <path d="m5.5 12.5 4.2 4.2L18.5 7.5" /> },
-  mismatch: { word: 'MISMATCH', className: styles.mismatch, boxClass: styles.hashBoxMismatch, icon: <path d="M6 6l12 12M18 6 6 18" /> },
-  earlier: { word: 'EARLIER VERSION', className: styles.earlier, boxClass: styles.hashBoxEarlier, icon: <><path d="M12 5v9" /><path d="M12 19h.01" /></> },
+  match: { word: 'Match', className: styles.match, boxClass: styles.hashBoxMatch, icon: <path d="m5.5 12.5 4.2 4.2L18.5 7.5" /> },
+  mismatch: { word: 'Mismatch', className: styles.mismatch, boxClass: styles.hashBoxMismatch, icon: <path d="M6 6l12 12M18 6 6 18" /> },
+  earlier: { word: 'Earlier version', className: styles.earlier, boxClass: styles.hashBoxEarlier, icon: <><path d="M12 5v9" /><path d="M12 19h.01" /></> },
 };
 
 /** Characters of `value` that differ from `other` at the same position are wrapped in <mark>. */
@@ -30,8 +30,8 @@ function countDifferences(first: string, second: string) {
 }
 
 /**
- * The outcome of a SHA-256 integrity check: a large MATCH / MISMATCH /
- * EARLIER VERSION verdict and both hashes side by side, with every differing
+ * The outcome of a SHA-256 integrity check: a Match / Mismatch /
+ * Earlier version verdict and both hashes side by side, with every differing
  * character highlighted so a mismatch is visible at a glance.
  */
 export default function HashComparison({
@@ -57,10 +57,10 @@ export default function HashComparison({
     <div className={styles.result} role="status" aria-live="polite">
       <div className={`${styles.verdict} ${style.className}`}>
         <span className={styles.verdictIcon} aria-hidden="true"><svg viewBox="0 0 24 24">{style.icon}</svg></span>
-        <span>
+        <p style={{ margin: 0 }}>
           <strong className={styles.verdictWord}>{style.word}</strong>
-          <span className={styles.verdictText}>{message}</span>
-        </span>
+          <span className={styles.verdictText}> — {message}</span>
+        </p>
       </div>
 
       <div className={styles.hashes}>
@@ -78,7 +78,7 @@ export default function HashComparison({
 
       {differences > 0 && (
         <p className={styles.diffNote}>
-          {differences} of {Math.max(checkedHash.length, recordedHash?.length ?? 0)} characters differ (highlighted). Any change to a file, even one character, produces a completely different hash.
+          {differences} of {Math.max(checkedHash.length, recordedHash?.length ?? 0)} characters differ (highlighted). Changing even one character of a file changes its whole hash.
         </p>
       )}
     </div>

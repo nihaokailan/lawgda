@@ -66,10 +66,10 @@ export default function PublicFileCheck({ auditToken }: { auditToken: string }) 
         <HashComparison
           verdict={result.outcome === 'authentic' ? 'match' : result.outcome === 'earlier_version' ? 'earlier' : 'mismatch'}
           message={result.outcome === 'authentic'
-            ? 'Authentic — this file is identical to the final signed document.'
+            ? 'this file is identical to the final signed document. It is authentic.'
             : result.outcome === 'earlier_version'
-              ? `Genuine but not final — this file matches ${versionLabel(result.matchedVersion)}.`
-              : 'Integrity breach — this file does not match any version recorded by Lawgda. It may have been altered.'}
+              ? `this file is genuine but not final. It matches ${versionLabel(result.matchedVersion)}.`
+              : 'this file does not match any version recorded by Lawgda. It may have been altered.'}
           checkedHash={result.computedHash}
           recordedHash={result.expectedHash}
           checkedLabel="Your file's SHA-256"

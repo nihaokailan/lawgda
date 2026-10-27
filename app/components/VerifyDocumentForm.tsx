@@ -135,7 +135,7 @@ export default function VerifyDocumentForm() {
       {result && <div aria-live="polite" style={{ marginTop: 16 }}>
         <HashComparison
           verdict={result.matches ? 'match' : 'mismatch'}
-          message={result.matches ? 'Integrity verified — the file is identical to the recorded document version.' : 'This file does not match the selected document version. It is a different file or it was altered.'}
+          message={result.matches ? 'the file is identical to the recorded document version. Integrity verified.' : 'this file does not match the selected document version. It is a different file or it was altered.'}
           checkedHash={result.computedHash}
           recordedHash={result.expectedHash}
           checkedLabel="Your file's SHA-256"

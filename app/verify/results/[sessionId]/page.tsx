@@ -67,7 +67,7 @@ export default function VerificationResults({ params }: { params: { sessionId: s
     <header className={styles.header}><div><p className={styles.eyebrow}>Verification <span aria-hidden="true">/</span> Results</p><h1>{session.title}</h1></div><div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}><BackButton className={shared.linkButton} fallbackHref="/verify" /><Link href="/verify" className={shared.linkButton}>Verify another document</Link></div></header>
     <HashComparison
       verdict={session.matches ? 'match' : 'mismatch'}
-      message={session.matches ? 'Integrity verified — the checked file is identical to the recorded document version.' : 'The checked file does not match the recorded document version. It is a different file or it was altered.'}
+      message={session.matches ? 'the checked file is identical to the recorded document version. Integrity verified.' : 'the checked file does not match the recorded document version. It is a different file or it was altered.'}
       checkedHash={session.computedHash}
       recordedHash={session.expectedHash}
     />
