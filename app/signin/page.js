@@ -21,6 +21,15 @@ function exchangeCodeOnce(supabase, code) {
   return codeExchanges.get(code);
 }
 
+// A token_hash link (from the Reset Password email template) works in any
+// browser or device, unlike a PKCE code, which needs the browser that asked.
+function verifyRecoveryTokenOnce(supabase, tokenHash) {
+  if (!codeExchanges.has(tokenHash)) {
+    codeExchanges.set(tokenHash, supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' }));
+  }
+  return codeExchanges.get(tokenHash);
+}
+
 export default function SignInPage() {
   return (
     <Suspense fallback={null}>
@@ -52,11 +61,12 @@ function SignInPageContent() {
     async function initializeRecoverySession() {
       const type = searchParams.get('type');
       const code = searchParams.get('code');
+      const tokenHash = searchParams.get('token_hash');
       const hashParams = new URLSearchParams(window.location.hash.slice(1));
       const accessToken = hashParams.get('access_token');
       const refreshToken = hashParams.get('refresh_token');
 
-      if (type !== 'recovery' && !code && !accessToken) {
+      if (type !== 'recovery' && !code && !tokenHash && !accessToken) {
         return;
       }
 
@@ -65,7 +75,9 @@ function SignInPageContent() {
       setMessage('Checking your recovery link...');
 
       let recoveryError = null;
-      if (code) {
+      if (tokenHash) {
+        ({ error: recoveryError } = await verifyRecoveryTokenOnce(supabase, tokenHash));
+      } else if (code) {
         ({ error: recoveryError } = await exchangeCodeOnce(supabase, code));
       } else if (accessToken && refreshToken) {
         ({ error: recoveryError } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }));
@@ -85,7 +97,9 @@ function SignInPageContent() {
       setRecoveryChecking(false);
       if (recoveryError) {
         setError(true);
-        setMessage(`Your recovery link is invalid or expired: ${recoveryError.message}`);
+        setMessage(/code verifier/i.test(recoveryError.message)
+          ? 'This reset link must be opened in the same browser you requested it from. Request a new link and open it there.'
+          : 'This reset link is invalid or has expired. Request a new one.');
         setRecoveryMode(false);
         return;
       }
