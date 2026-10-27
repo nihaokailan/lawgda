@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { hasDocumentAccess } from '../../../../lib/documentAccess';
 import Link from 'next/link';
 import WorkspaceShell from '../../../components/WorkspaceShell';
 import RealtimeRefresh from '../../../components/RealtimeRefresh';
@@ -24,18 +25,7 @@ export default async function SignedDocumentPage({ params }: { params: { documen
 
   if (!document) notFound();
 
-  const ownerId = document.owner_id ?? document.user_id;
-  const uploaderId = document.uploaded_by ?? null;
-  let allowed = ownerId === user.id || uploaderId === user.id;
-  if (!allowed) {
-    const { data: permission } = await supabase
-      .from('document_permissions')
-      .select('id')
-      .eq('document_id', documentId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    allowed = Boolean(permission);
-  }
+  const allowed = await hasDocumentAccess({ user, profile, document });
   if (!allowed) redirect('/dashboard');
 
   const metadata = getMetadata(document.metadata);

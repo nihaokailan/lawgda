@@ -13,6 +13,9 @@ type Props = {
   canEdit: boolean;
   locked: boolean;
   caseNumberFromCase?: boolean;
+  status?: string;
+  folderTitle?: string | null;
+  uploadedAt?: string | null;
 };
 
 /**
@@ -20,7 +23,7 @@ type Props = {
  * including corrections of wrong entries — is written to the document's
  * hash-chained audit trail with the old and new values.
  */
-export default function DocumentDetailsEditor({ documentId, title, caseNumber, tags, canEdit, locked, caseNumberFromCase = false }: Props) {
+export default function DocumentDetailsEditor({ documentId, title, caseNumber, tags, canEdit, locked, caseNumberFromCase = false, status, folderTitle = null, uploadedAt = null }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title, caseNumber: caseNumber ?? '', tags: tags.join(', '), note: '' });
@@ -64,9 +67,13 @@ export default function DocumentDetailsEditor({ documentId, title, caseNumber, t
 
       {!editing ? (
         <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '0.35rem 1rem', margin: '0.75rem 0 0' }}>
-          <dt style={{ color: 'var(--muted)' }}>Title</dt><dd style={{ margin: 0 }}>{title}</dd>
+          <dt style={{ color: 'var(--muted)' }}>Title</dt><dd style={{ margin: 0, fontWeight: 600 }}>{title}</dd>
+          {status && <><dt style={{ color: 'var(--muted)' }}>Status</dt><dd style={{ margin: 0, fontWeight: 600, color: 'var(--crimson)' }}>{status}</dd></>}
           <dt style={{ color: 'var(--muted)' }}>Case number</dt><dd style={{ margin: 0 }}>{caseNumber || '—'}</dd>
+          {folderTitle && <><dt style={{ color: 'var(--muted)' }}>Folder</dt><dd style={{ margin: 0 }}>{folderTitle}</dd></>}
           <dt style={{ color: 'var(--muted)' }}>Tags</dt><dd style={{ margin: 0 }}>{tags.length ? tags.join(', ') : '—'}</dd>
+          {uploadedAt && <><dt style={{ color: 'var(--muted)' }}>Uploaded</dt><dd style={{ margin: 0 }}>{new Date(uploadedAt).toLocaleString()}</dd></>}
+          <dt style={{ color: 'var(--muted)' }}>Document ID</dt><dd style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all' }}>{documentId}</dd>
         </dl>
       ) : (
         <form onSubmit={save} className={shared.formGrid} style={{ marginTop: '0.75rem' }}>

@@ -1341,3 +1341,31 @@
     justify-content: center;
   }
 }
+
+/* Page header: title on the left, Back button on the right. */
+.container:not(.dashboardContainer) .headerWithBack {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.headerWithBack .headerBack {
+  align-self: flex-start;
+  flex: none;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .container:not(.dashboardContainer) .headerWithBack {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+  }
+}

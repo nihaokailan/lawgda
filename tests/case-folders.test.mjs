@@ -52,3 +52,18 @@ test('documents opened from a folder go back to that folder', async () => {
   assert.equal(documentOriginLabel('/cases/not-a-folder'), null);
   assert.equal(documentOriginLabel('https://evil.example/cases/0c9f4b7e-1d2a-4f3b-9c8d-7e6f5a4b3c2d'), null);
 });
+
+test('Staff may work on documents owned by a Lawyer of their own firm only', async () => {
+  const accessSource = (await readFile(new URL('../lib/documentAccess.js', import.meta.url), 'utf8'))
+    .replace("import { getSupabaseAdmin } from './supabaseAdmin';", 'const getSupabaseAdmin = () => null;')
+    .replace("import { RbacError, ROLES } from './rbac';", "class RbacError extends Error {} const ROLES = { STAFF: 'staff', LAWYER: 'lawyer', DEFAULT_ADMIN: 'default_admin' };");
+  const { isFirmLawyerDocumentForStaff } = await import(asDataUrl(accessSource));
+  const staff = { role: 'staff', org_id: 'firm-a' };
+  const doc = { org_id: 'firm-a' };
+  assert.equal(isFirmLawyerDocumentForStaff(staff, doc, { role: 'lawyer', org_id: 'firm-a' }), true);
+  assert.equal(isFirmLawyerDocumentForStaff(staff, doc, { role: 'staff', org_id: 'firm-a' }), false);
+  assert.equal(isFirmLawyerDocumentForStaff(staff, { org_id: 'firm-b' }, { role: 'lawyer', org_id: 'firm-b' }), false);
+  assert.equal(isFirmLawyerDocumentForStaff(staff, doc, { role: 'lawyer', org_id: 'firm-b' }), false);
+  assert.equal(isFirmLawyerDocumentForStaff({ role: 'lawyer', org_id: 'firm-a' }, doc, { role: 'lawyer', org_id: 'firm-a' }), false);
+  assert.equal(isFirmLawyerDocumentForStaff({ role: 'admin', org_id: 'firm-a' }, doc, { role: 'lawyer', org_id: 'firm-a' }), false);
+});

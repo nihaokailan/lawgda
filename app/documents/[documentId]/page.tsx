@@ -13,6 +13,7 @@ import RealtimeRefresh from '../../components/RealtimeRefresh';
 import Link from 'next/link';
 import shared from '../../../styles/shared.module.css';
 import { logDocumentAuditEvent } from '../../../lib/auditLog';
+import { hasDocumentAccess } from '../../../lib/documentAccess';
 
 function normalizeStatus(value: unknown) {
   const status = String(value || '').toLowerCase();
@@ -47,19 +48,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
   }
 
   // Check permissions
-  const ownerId = document.owner_id ?? document.user_id;
-  const uploaderId = document.uploaded_by ?? null;
-  let hasPermission = ownerId === user.id || uploaderId === user.id;
-
-  if (!hasPermission) {
-    const { data: permission } = await supabase
-      .from('document_permissions')
-      .select('id')
-      .eq('document_id', documentId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    hasPermission = Boolean(permission);
-  }
+  const hasPermission = await hasDocumentAccess({ user, profile, document });
 
   if (!hasPermission) {
     redirect('/dashboard');
@@ -80,6 +69,8 @@ export default async function DocumentViewPage({ params }: { params: { documentI
   ]);
   const mySigningTurn = turns.get(documentId) ?? null;
   const caseFolder = caseResult.data as { id: string; title: string | null } | null;
+  const isSignedOrFiled = ['signed', 'filed'].includes(String(document.status || '').toLowerCase());
+  const isDocumentOwner = (document.owner_id ?? document.user_id) === user.id;
 
   return (
     <WorkspaceShell
@@ -87,16 +78,32 @@ export default async function DocumentViewPage({ params }: { params: { documentI
       title="Document Details"
       subtitle="Download, verify and track this document."
     >
-      <div style={{ marginBottom: '1.5rem' }}>
+      <DocumentDetailsEditor
+        documentId={documentId}
+        title={String(document.title || document.filename || 'Untitled document')}
+        caseNumber={document.case_number ?? null}
+        tags={Array.isArray(document.tags) ? document.tags : []}
+        canEdit={profile.role === ROLES.LAWYER || profile.role === ROLES.STAFF}
+        locked={document.status === 'Filed'}
+        caseNumberFromCase={Boolean(document.case_id)}
+        status={normalizeStatus(document.status)}
+        folderTitle={caseFolder ? caseFolder.title || 'Untitled folder' : null}
+        uploadedAt={document.created_at ?? null}
+      />
+
+      {/* Actions on this document, below its details. */}
+      {(isSignedOrFiled || isDocumentOwner) && (
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <Link
-          href={`/documents/${documentId}/${['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'signed' : 'prepare'}`}
+          href={`/documents/${documentId}/${isSignedOrFiled ? 'signed' : 'prepare'}`}
           className={shared.button}
           style={{ display: 'inline-block', textDecoration: 'none' }}
         >
-          {['signed', 'filed'].includes(String(document.status || '').toLowerCase()) ? 'Signature Record →' : 'Sign Document →'}
+          {isSignedOrFiled ? 'Signature Record →' : 'Sign Document →'}
         </Link>
       </div>
-      
+      )}
+
       {profile.role === ROLES.LAWYER && document.status === 'Signed' && (
         <div className={`${shared.sectionCard} ${shared.actionCallout}`} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
           <h3 style={{ marginTop: 0 }}>Ready to file</h3>
@@ -121,22 +128,6 @@ export default async function DocumentViewPage({ params }: { params: { documentI
           )}
         </div>
       )}
-
-      {caseFolder && (
-        <p className={shared.helpText} style={{ marginTop: 0, marginBottom: '1rem' }}>
-          Case folder: <Link href={`/cases/${caseFolder.id}`}>{caseFolder.title || 'Untitled case'} →</Link>
-        </p>
-      )}
-
-      <DocumentDetailsEditor
-        documentId={documentId}
-        title={String(document.title || document.filename || 'Untitled document')}
-        caseNumber={document.case_number ?? null}
-        tags={Array.isArray(document.tags) ? document.tags : []}
-        canEdit={profile.role === ROLES.LAWYER || profile.role === ROLES.STAFF}
-        locked={document.status === 'Filed'}
-        caseNumberFromCase={Boolean(document.case_id)}
-      />
 
       <RealtimeRefresh filter={`id=eq.${documentId}`} />
       <DocumentViewClient

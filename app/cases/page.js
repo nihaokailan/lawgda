@@ -71,6 +71,23 @@ async function loadAdminDocumentFallback(userId) {
   ));
 }
 
+// Staff support their firm's Lawyers, so they also see documents owned by a
+// Lawyer of their firm (the same rule lib/documentAccess.js enforces).
+async function loadFirmLawyerDocuments(orgId) {
+  const admin = getSupabaseAdmin();
+  const { data: lawyers } = await admin.from('profiles').select('user_id').eq('org_id', orgId).eq('role', 'lawyer');
+  const lawyerIds = (lawyers ?? []).map((row) => row.user_id);
+  if (lawyerIds.length === 0) return [];
+  const { data } = await admin
+    .from('documents')
+    .select('*')
+    .eq('org_id', orgId)
+    .in('owner_id', lawyerIds)
+    .order('created_at', { ascending: false })
+    .limit(500);
+  return data ?? [];
+}
+
 // Case folders of the user's firm, shown alongside documents like folders in a drive.
 async function loadFirmFolders(orgId) {
   const { data } = await getSupabaseAdmin()
@@ -102,15 +119,16 @@ export default async function CasesPage() {
   // Independent loads, run concurrently. Stored files without a document row
   // are given one by the dashboard's backfill, so Storage isn't listed here.
   const canUseFolders = CASE_MANAGER_ROLES.includes(profile.role) && Boolean(profile.org_id);
-  let [rawDocs, sharedDocs, folderRows] = await Promise.all([
+  let [rawDocs, sharedDocs, folderRows, firmLawyerDocs] = await Promise.all([
     loadDocumentsForCasesPage(supabase),
     loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id),
     canUseFolders ? loadFirmFolders(profile.org_id) : [],
+    profile.role === 'staff' && profile.org_id ? loadFirmLawyerDocuments(profile.org_id) : [],
   ]);
   if (!rawDocs.length) {
     rawDocs = await loadAdminDocumentFallback(user.id);
   }
-  const allDocs = [...rawDocs, ...sharedDocs];
+  const allDocs = [...rawDocs, ...sharedDocs, ...firmLawyerDocs];
 
   const userOwnedDocs = allDocs.filter((record) => {
     const ownerId = record.owner_id ?? record.user_id ?? null;

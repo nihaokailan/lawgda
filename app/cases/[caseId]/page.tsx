@@ -6,12 +6,14 @@ import { enrichAuditEntries } from '../../../lib/auditPresentation';
 import RealtimeRefresh from '../../components/RealtimeRefresh';
 import { notFound } from 'next/navigation';
 import { canManageCase } from '../../../lib/caseFolders';
+import { isFirmLawyerDocumentForStaff } from '../../../lib/documentAccess';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type RawDocument = {
   id: string;
   case_id: string;
+  org_id: string | null;
   owner_id: string | null;
   user_id: string | null;
   uploaded_by: string | null;
@@ -99,9 +101,23 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
     signerPermissions = new Set((perms ?? []).map((row) => row.document_id));
   }
 
-  // Same rule as the document page: owner, uploader or an explicit grant.
+  // Staff may open documents owned by a Lawyer of their firm.
+  const firmLawyerIds = new Set<string>();
+  if (profile.role === 'staff' && profile.org_id) {
+    const { data: lawyers } = await admin.from('profiles').select('user_id').eq('org_id', profile.org_id).eq('role', 'lawyer');
+    (lawyers ?? []).forEach((row) => firmLawyerIds.add(row.user_id));
+  }
+  const ownedByFirmLawyer = (document: { owner_id?: string | null; user_id?: string | null; org_id?: string | null }) => {
+    const ownerId = document.owner_id ?? document.user_id ?? null;
+    return Boolean(ownerId && firmLawyerIds.has(ownerId))
+      && isFirmLawyerDocumentForStaff(profile, document, { role: 'lawyer', org_id: profile.org_id });
+  };
+
+  // Same rule as the document page (lib/documentAccess.js): owner, uploader,
+  // Staff of the owning Lawyer's firm, or an explicit grant.
   const canOpen = (document: RawDocument) => (document.owner_id ?? document.user_id) === user.id
     || document.uploaded_by === user.id
+    || ownedByFirmLawyer(document)
     || signerPermissions.has(document.id);
 
   if (!isOwner && !documents.some(canOpen)) {
@@ -167,7 +183,7 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       : { data: [] };
     const granted = new Set((grants ?? []).map((grant) => grant.document_id));
     addableDocuments = rows
-      .filter((row) => (row.owner_id ?? row.user_id) === user.id || row.uploaded_by === user.id || granted.has(row.id))
+      .filter((row) => (row.owner_id ?? row.user_id) === user.id || row.uploaded_by === user.id || ownedByFirmLawyer({ ...row, org_id: profile.org_id }) || granted.has(row.id))
       .map((row) => ({
         id: row.id,
         title: row.title || row.name || row.filename || 'Untitled Document',

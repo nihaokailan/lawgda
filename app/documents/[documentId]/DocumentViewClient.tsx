@@ -59,11 +59,6 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
     };
   }, [document.id, downloadVersion]);
 
-  function formatDate(dateString: string | null) {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString();
-  }
-
   async function handleDownload() {
     setDownloading(true);
     setDownloadError('');
@@ -101,31 +96,6 @@ export default function DocumentViewClient({ document }: DocumentViewProps) {
 
   return (
     <>
-      {/* Document Info Card */}
-      <div className={shared.sectionCard} style={{ marginTop: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-          <div>
-            <p style={{ margin: '0 0 0.5rem 0', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 600 }}>Title</p>
-            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{document.title}</h2>
-          </div>
-          <div>
-            <p style={{ margin: '0 0 0.5rem 0', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 600 }}>Status</p>
-            <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--crimson)' }}>{document.status}</p>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '2rem' }}>
-          <div>
-            <p style={{ margin: '0 0 0.5rem 0', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 600 }}>Uploaded</p>
-            <p style={{ margin: 0 }}>{formatDate(document.created_at)}</p>
-          </div>
-          <div>
-            <p style={{ margin: '0 0 0.5rem 0', color: 'var(--muted)', fontSize: '0.9rem', fontWeight: 600 }}>Document ID</p>
-            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.9rem' }}>{document.id}</p>
-          </div>
-        </div>
-      </div>
-
       {/* Document Lifecycle History */}
       <DocumentLifecycleTimeline documentId={document.id} currentStatus={document.rawStatus} />
 

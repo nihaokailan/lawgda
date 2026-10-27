@@ -4,6 +4,7 @@ import { requireDocumentAccess } from '../../../../lib/authGuard';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 import PrepareDocumentClient from './PrepareDocumentClient';
+import { hasDocumentAccess } from '../../../../lib/documentAccess';
 
 type SigningRequest = {
   id: string;
@@ -42,29 +43,23 @@ export default async function DocumentPreparePage({ params }: { params: { docume
     notFound();
   }
 
-  const ownerId = document.owner_id ?? document.user_id;
-  const uploaderId = document.uploaded_by ?? null;
-  let hasPermission = ownerId === user.id || uploaderId === user.id;
-
-  if (!hasPermission) {
-    const { data: permission } = await supabase
-      .from('document_permissions')
-      .select('id')
-      .eq('document_id', documentId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    hasPermission = Boolean(permission);
-  }
+  const hasPermission = await hasDocumentAccess({ user, profile, document });
 
   if (!hasPermission) {
     redirect('/dashboard');
+  }
+
+  // Only the document's owner can send it for signature (enforced by the API too).
+  if ((document.owner_id ?? document.user_id) !== user.id) {
+    redirect(`/documents/${documentId}`);
   }
 
   if (['pending', 'signed', 'filed'].includes(String(document.status || '').toLowerCase())) {
     redirect(`/documents/${documentId}`);
   }
 
-  const signingRequestsResult = await supabase
+  // Access was checked above; read with the service role.
+  const signingRequestsResult = await getSupabaseAdmin()
     .from('signing_requests')
     .select('id,signer_name,signer_email,signing_order,status,created_at,signed_at,viewed_at')
     .eq('document_id', documentId)

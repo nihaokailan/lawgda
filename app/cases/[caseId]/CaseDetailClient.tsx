@@ -88,6 +88,7 @@ export default function CaseDetailClient({
   const [isRenameOpen, setRenameOpen] = useState(false);
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const [renameForm, setRenameForm] = useState({ title: caseTitle, caseNumber: caseNumber ?? '', note: '' });
+  const [showCustody, setShowCustody] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -201,6 +202,15 @@ export default function CaseDetailClient({
         {label.qrDataUrl && (
           <a className={docs.verifyButton} href={label.qrDataUrl} download={label.downloadName}>Download QR</a>
         )}
+        <button
+          type="button"
+          className={docs.verifyButton}
+          onClick={() => setShowCustody((current) => !current)}
+          aria-expanded={showCustody}
+          aria-controls="folder-chain-of-custody"
+        >
+          {showCustody ? 'Hide chain of custody' : 'Show chain of custody'}
+        </button>
       </div>
 
       <div className={docs.resultsWrap}>
@@ -252,8 +262,8 @@ export default function CaseDetailClient({
         )}
       </div>
 
-      {activity.length > 0 && (
-        <section className={styles.workspaceCard} style={{ marginTop: '1.5rem' }}>
+      {showCustody && (
+        <section id="folder-chain-of-custody" className={styles.workspaceCard} style={{ marginTop: '1.5rem' }}>
           <h3 className={styles.sectionTitle}>Folder Chain of Custody</h3>
           <p className={styles.infoText}>Most recent recorded activity across this folder&apos;s documents.</p>
           <AuditTrailList entries={activity} maxHeight={360} />
