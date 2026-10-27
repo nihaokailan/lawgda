@@ -119,7 +119,7 @@ export async function POST(request) {
     const incomingPath = String(body?.path || '');
     const clientHash = String(body?.sha256Hash || '').trim().toLowerCase();
     // Indexing metadata entered at upload (§1.5.2(4)); both are optional.
-    const caseNumber = String(body?.caseNumber || '').trim() || null;
+    let caseNumber = String(body?.caseNumber || '').trim() || null;
     const tags = parseTags(body?.tags);
 
     if (!title) {
@@ -141,11 +141,13 @@ export async function POST(request) {
     if (caseId) {
       // Read through the caller's own RLS-scoped client: a case they cannot see is treated as missing.
       const { data: caseRow } = await createSupabaseServerClient()
-        .from('cases').select('id').eq('id', caseId).maybeSingle();
-      if (!caseRow) {
+        .from('cases').select('id,org_id,case_number').eq('id', caseId).maybeSingle();
+      if (!caseRow || caseRow.org_id !== profile.org_id) {
         await supabaseAdmin.storage.from(bucket).remove([incomingPath]);
         return NextResponse.json({ error: 'Case not found.' }, { status: 404 });
       }
+      // A document in a case folder carries the case's number.
+      caseNumber = caseRow.case_number || null;
     }
 
     const { data: stored, error: downloadError } = await supabaseAdmin.storage.from(bucket).download(incomingPath);
@@ -210,7 +212,7 @@ export async function POST(request) {
         documentId,
         actorUserId: user.id,
         eventType: 'document_uploaded',
-        details: { title, case_number: caseNumber, tags, role: profile.role, sha256_hash: sha256Hash, hash_verified: 'browser_and_server', size_bytes: bytes.length },
+        details: { title, case_id: caseId, case_number: caseNumber, tags, role: profile.role, sha256_hash: sha256Hash, hash_verified: 'browser_and_server', size_bytes: bytes.length },
       }).catch((failure) => console.error('[audit] Unable to record draft creation:', failure));
     }
 

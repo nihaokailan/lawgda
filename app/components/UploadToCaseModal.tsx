@@ -9,15 +9,15 @@ import styles from '../../styles/dashboard.module.css';
 type UploadToCaseModalProps = {
   open: boolean;
   caseId: string;
+  caseNumber: string | null;
   onClose: () => void;
   onUploaded: () => void;
 };
 
-export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }: UploadToCaseModalProps) {
+export default function UploadToCaseModal({ open, caseId, caseNumber, onClose, onUploaded }: UploadToCaseModalProps) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [title, setTitle] = useState('');
-  const [caseNumber, setCaseNumber] = useState('');
   const [tags, setTags] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileHash, setFileHash] = useState('');
@@ -89,7 +89,7 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
 
     let uploadedDocument;
     try {
-      ({ document: uploadedDocument } = await uploadDocument(supabase, { file, title: title.trim(), caseId, sha256Hash: fileHash, caseNumber, tags }));
+      ({ document: uploadedDocument } = await uploadDocument(supabase, { file, title: title.trim(), caseId, sha256Hash: fileHash, tags }));
     } catch (failure) {
       setBusy(false);
       setError(true);
@@ -101,7 +101,6 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
 
     setBusy(false);
     setTitle('');
-    setCaseNumber('');
     setTags('');
     setFile(null);
     setFileHash('');
@@ -136,16 +135,9 @@ export default function UploadToCaseModal({ open, caseId, onClose, onUploaded }:
             />
           </label>
 
-          <label className={styles.modalLabel}>
-            Case number (optional)
-            <input
-              className={styles.modalInput}
-              value={caseNumber}
-              onChange={(event) => setCaseNumber(event.target.value)}
-              maxLength={80}
-              placeholder="for ex. Civil Case No. R-DVO-26-01234"
-            />
-          </label>
+          <p className={styles.infoText}>
+            Case number: <strong>{caseNumber || 'none yet'}</strong> (taken from this case folder)
+          </p>
 
           <label className={styles.modalLabel}>
             Tags (optional, comma-separated)

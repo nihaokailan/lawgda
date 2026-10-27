@@ -15,9 +15,10 @@ import { INDEX_LIMITS, parseTags, validateIndexFields } from '../../../../../lib
 export async function PATCH(request, { params }) {
   let user;
   let profile;
+  let document;
   try {
     ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
-    await loadAccessibleDocument({ user, profile, documentId: String(params?.documentId || '') });
+    document = await loadAccessibleDocument({ user, profile, documentId: String(params?.documentId || '') });
   } catch (error) {
     return rbacErrorResponse(error);
   }
@@ -36,6 +37,10 @@ export async function PATCH(request, { params }) {
 
   if (title !== null && (!title || title.length > INDEX_LIMITS.title)) {
     return NextResponse.json({ error: `Title is required and must be at most ${INDEX_LIMITS.title} characters.` }, { status: 400 });
+  }
+  // A document in a case folder takes its number from the case; rename the case instead.
+  if (document.case_id && caseNumber !== null && caseNumber !== (document.case_number ?? '')) {
+    return NextResponse.json({ error: 'This document is in a case folder, so its case number comes from the case. Rename the case to change it.' }, { status: 409 });
   }
   const indexProblem = validateIndexFields({ caseNumber: caseNumber ?? '', tags: tags ?? [] });
   if (indexProblem) {

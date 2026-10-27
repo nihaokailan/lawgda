@@ -21,9 +21,6 @@ function normalizeStatus(value) {
   if (status.includes('pending')) return 'Pending';
   if (status.includes('file')) return 'Filed';
   if (status.includes('signed')) return 'Signed';
-  if (status.includes('cancel')) return 'Cancelled';
-  if (status.includes('deny')) return 'Denied';
-  if (status.includes('decline')) return 'Declined';
   return 'Drafts';
 }
 

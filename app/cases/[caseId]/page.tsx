@@ -6,6 +6,8 @@ import CaseDetailClient from './CaseDetailClient';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { enrichAuditEntries } from '../../../lib/auditPresentation';
 import RealtimeRefresh from '../../components/RealtimeRefresh';
+import { notFound } from 'next/navigation';
+import { canManageCase } from '../../../lib/caseFolders';
 
 type RawDocument = {
   id: string;
@@ -57,21 +59,31 @@ async function insertViewLogs(
 export default async function CaseDetailPage({ params }: { params: { caseId: string } }) {
   const { user, profile } = await requireDocumentAccess();
   const supabase = createSupabaseServerClient();
+  const admin = getSupabaseAdmin();
   const caseId = params.caseId;
 
-  const [{ data: caseRow }, { data: docsData }] = await Promise.all([
-    supabase.from('cases').select('id,title,owner_id,user_id,created_at').eq('id', caseId).maybeSingle(),
-    supabase
-      .from('documents')
-      .select('*')
-      .eq('case_id', caseId)
-      .order('created_at', { ascending: false }),
-  ]);
+  // RLS decides whether this user may see the case at all: firm Lawyers/Staff,
+  // the creator, or someone granted access to a document in it.
+  const { data: caseRow } = await supabase
+    .from('cases')
+    .select('id,title,case_number,org_id,owner_id,user_id,created_at')
+    .eq('id', caseId)
+    .maybeSingle();
+  if (!caseRow) {
+    notFound();
+  }
+
+  const canManage = canManageCase(profile, caseRow);
+  const { data: docsData } = await admin
+    .from('documents')
+    .select('*')
+    .eq('case_id', caseId)
+    .order('created_at', { ascending: false });
 
   const documents = (docsData ?? []) as RawDocument[];
 
   const ownerId = (caseRow?.owner_id ?? caseRow?.user_id ?? null) as string | null;
-  const isOwner = ownerId === user.id;
+  const isOwner = ownerId === user.id || canManage;
 
   const docIds = documents.map((document) => document.id);
   let signerPermissions = new Set<string>();
@@ -116,7 +128,6 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
   const titleById = new Map(visibleDocuments.map((document) => [document.id, document.title]));
   let activity: Awaited<ReturnType<typeof enrichAuditEntries>> = [];
   if (titleById.size > 0) {
-    const admin = getSupabaseAdmin();
     const { data: auditRows } = await admin
       .from('audit_logs')
       .select('id,document_id,actor_user_id,event_type,details,created_at')
@@ -136,7 +147,34 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
     await insertViewLogs(user.id, caseId, viewedDocIds);
   }
 
-  const caseTitle = (caseRow?.title as string | undefined) || 'Shared Case';
+  const caseTitle = (caseRow.title as string | undefined) || 'Untitled case';
+
+  // Documents this user could add: same firm, not in any case, not Filed, and
+  // ones they own, uploaded or were granted (the same rule the add route checks).
+  let addableDocuments: Array<{ id: string; title: string; status: string; caseNumber: string | null }> = [];
+  if (canManage) {
+    const { data: candidates } = await admin
+      .from('documents')
+      .select('id,title,name,filename,status,case_number,owner_id,user_id,uploaded_by,created_at')
+      .eq('org_id', profile.org_id)
+      .is('case_id', null)
+      .neq('status', 'Filed')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    const rows = candidates ?? [];
+    const { data: grants } = rows.length
+      ? await admin.from('document_permissions').select('document_id').eq('user_id', user.id).in('document_id', rows.map((row) => row.id))
+      : { data: [] };
+    const granted = new Set((grants ?? []).map((grant) => grant.document_id));
+    addableDocuments = rows
+      .filter((row) => (row.owner_id ?? row.user_id) === user.id || row.uploaded_by === user.id || granted.has(row.id))
+      .map((row) => ({
+        id: row.id,
+        title: row.title || row.name || row.filename || 'Untitled Document',
+        status: normalizeStatus(row.status),
+        caseNumber: row.case_number ?? null,
+      }));
+  }
 
   return (
     <WorkspaceShell
@@ -148,7 +186,10 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       <CaseDetailClient
         caseId={caseId}
         caseTitle={caseTitle}
+        caseNumber={(caseRow.case_number as string | null) ?? null}
+        canManage={canManage}
         isOwner={isOwner}
+        addableDocuments={addableDocuments}
         documents={visibleDocuments}
         activity={activity}
       />

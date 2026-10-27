@@ -15,6 +15,7 @@ const NAV_ICONS = {
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a8 8 0 0 1 16 0v1" /></>,
   key: <><circle cx="8" cy="15" r="4" /><path d="m10.8 12.2 8.7-8.7M16 7l2 2m-5 1 2 2" /></>,
+  folder: <><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><rect x="14" y="11" width="4" height="4" rx=".5" /></>,
   documents: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8m-8 4h8" /></>,
   admin: <><path d="M12 3 20 7v5c0 5-3.4 8-8 10-4.6-2-8-5-8-10V7z" /><path d="m9 12 2 2 4-4" /></>,
   repository: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></>,
@@ -31,6 +32,8 @@ function NavigationIcon({ href }) {
         ? 'key'
         : href === '/cases'
           ? 'documents'
+          : href === '/case-folders'
+            ? 'folder'
           : href === '/help'
             ? 'help'
           : href.includes('repository') || href === '/repository'
@@ -86,6 +89,7 @@ export default function WorkspaceSidebar({ role, dashboard = false }) {
       label: 'Documents',
       permissions: [PERMISSIONS.MANAGE_ASSIGNED_DOCUMENTS, PERMISSIONS.ORGANIZE_DOCUMENTS],
     },
+    { href: '/case-folders', label: 'Case Folders', roles: ['lawyer', 'staff'] },
     {
       href: '/profile',
       label: 'User Profile',

@@ -13,7 +13,7 @@ function escapeHtml(value: string) {
  * code only carries the case URL; opening it still requires a signed-in,
  * authorized Lawgda account, so the label itself reveals nothing.
  */
-export default function CaseQrCard({ caseId, caseTitle }: { caseId: string; caseTitle: string }) {
+export default function CaseQrCard({ caseId, caseTitle, caseNumber = null }: { caseId: string; caseTitle: string; caseNumber?: string | null }) {
   const [caseUrl, setCaseUrl] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState('');
 
@@ -32,7 +32,8 @@ export default function CaseQrCard({ caseId, caseTitle }: { caseId: string; case
       <body style="font-family:system-ui,sans-serif;text-align:center;padding:24px">
         <div style="display:inline-block;border:2px solid #6a0f1a;border-radius:12px;padding:18px 22px">
           <div style="color:#6a0f1a;font-weight:800;letter-spacing:.08em">LAWGDA · CASE FOLDER</div>
-          <h2 style="margin:.4rem 0 .8rem;font-size:1.1rem">${escapeHtml(caseTitle)}</h2>
+          <h2 style="margin:.4rem 0 ${caseNumber ? '.2rem' : '.8rem'};font-size:1.1rem">${escapeHtml(caseTitle)}</h2>
+          ${caseNumber ? `<p style="margin:0 0 .8rem;font-size:.85rem;color:#333">${escapeHtml(caseNumber)}</p>` : ''}
           <img src="${qrDataUrl}" width="240" height="240" alt="Case QR code" />
           <p style="font-size:.75rem;color:#444;margin:.6rem 0 0">Scan to open this case's tracking history and chain of custody.</p>
           <p style="font-size:.65rem;color:#777;margin:.3rem 0 0;word-break:break-all">Case ID: ${escapeHtml(caseId)}</p>

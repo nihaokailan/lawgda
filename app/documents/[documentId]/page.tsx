@@ -65,8 +65,11 @@ export default async function DocumentViewPage({ params }: { params: { documentI
     redirect('/dashboard');
   }
 
-  const [turns] = await Promise.all([
+  const [turns, caseResult] = await Promise.all([
     loadMySigningTurns(getSupabaseAdmin(), user.email, [documentId]),
+    document.case_id
+      ? supabase.from('cases').select('id,title').eq('id', document.case_id).maybeSingle()
+      : Promise.resolve({ data: null }),
     logDocumentAuditEvent({
       documentId,
       actorUserId: user.id,
@@ -75,6 +78,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
     }),
   ]);
   const mySigningTurn = turns.get(documentId) ?? null;
+  const caseFolder = caseResult.data as { id: string; title: string | null } | null;
 
   return (
     <WorkspaceShell
@@ -117,6 +121,12 @@ export default async function DocumentViewPage({ params }: { params: { documentI
         </div>
       )}
 
+      {caseFolder && (
+        <p className={shared.helpText} style={{ marginTop: 0, marginBottom: '1rem' }}>
+          Case folder: <Link href={`/cases/${caseFolder.id}`}>{caseFolder.title || 'Untitled case'} →</Link>
+        </p>
+      )}
+
       <DocumentDetailsEditor
         documentId={documentId}
         title={String(document.title || document.filename || 'Untitled document')}
@@ -124,6 +134,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
         tags={Array.isArray(document.tags) ? document.tags : []}
         canEdit={profile.role === ROLES.LAWYER || profile.role === ROLES.STAFF}
         locked={document.status === 'Filed'}
+        caseNumberFromCase={Boolean(document.case_id)}
       />
 
       <RealtimeRefresh filter={`id=eq.${documentId}`} />

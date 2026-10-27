@@ -12,6 +12,7 @@ type Props = {
   tags: string[];
   canEdit: boolean;
   locked: boolean;
+  caseNumberFromCase?: boolean;
 };
 
 /**
@@ -19,7 +20,7 @@ type Props = {
  * including corrections of wrong entries — is written to the document's
  * hash-chained audit trail with the old and new values.
  */
-export default function DocumentDetailsEditor({ documentId, title, caseNumber, tags, canEdit, locked }: Props) {
+export default function DocumentDetailsEditor({ documentId, title, caseNumber, tags, canEdit, locked, caseNumberFromCase = false }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title, caseNumber: caseNumber ?? '', tags: tags.join(', '), note: '' });
@@ -75,7 +76,8 @@ export default function DocumentDetailsEditor({ documentId, title, caseNumber, t
           </label>
           <label className={shared.fieldLabel}>
             Case number
-            <input className={shared.input} value={form.caseNumber} maxLength={80} placeholder="e.g. Civil Case No. R-DVO-26-01234" onChange={(event) => setForm({ ...form, caseNumber: event.target.value })} />
+            <input className={shared.input} value={form.caseNumber} maxLength={80} placeholder="e.g. Civil Case No. R-DVO-26-01234" disabled={caseNumberFromCase} onChange={(event) => setForm({ ...form, caseNumber: event.target.value })} />
+            {caseNumberFromCase && <span className={shared.helpText}>Set by this document&apos;s case folder. Rename the case to change it.</span>}
           </label>
           <label className={shared.fieldLabel}>
             Tags (comma-separated)

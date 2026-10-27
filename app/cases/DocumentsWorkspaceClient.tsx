@@ -30,9 +30,6 @@ const FILTERS = [
   'Filed',
   'Signed',
   'Drafts',
-  'Cancelled',
-  'Denied',
-  'Declined',
 ];
 
 function formatDate(value: string | null) {
@@ -56,9 +53,6 @@ const STATUS_PILL_CLASS: Record<string, string> = {
   Signed: 'statusPillCompleted',
   Pending: 'statusPillPending',
   Drafts: 'statusPillDrafts',
-  Cancelled: 'statusPillDenied',
-  Denied: 'statusPillDenied',
-  Declined: 'statusPillDenied',
 };
 
 export default function DocumentsWorkspaceClient({ documents }: { documents: DocumentRow[] }) {
@@ -77,9 +71,6 @@ export default function DocumentsWorkspaceClient({ documents }: { documents: Doc
       Filed: 0,
       Signed: 0,
       Drafts: 0,
-      Cancelled: 0,
-      Denied: 0,
-      Declined: 0,
     };
 
     visibleDocuments.forEach((row) => {
