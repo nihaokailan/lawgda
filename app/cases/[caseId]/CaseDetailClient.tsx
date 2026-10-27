@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import UploadToCaseModal from '../../components/UploadToCaseModal';
 import { useFolderLabel } from '../../components/CaseQrCard';
 import StatusDialog from '../../components/StatusDialog';
+import ConfirmDialog from '../../components/Dialog';
+import shared from '../../../styles/shared.module.css';
 import { rememberDocumentOrigin } from '../../../lib/documentOrigin';
 import AuditTrailList, { type AuditTrailEntry } from '../../components/AuditTrailList';
 import docs from '../../../styles/documents.module.css';
@@ -89,6 +91,7 @@ export default function CaseDetailClient({
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const [renameForm, setRenameForm] = useState({ title: caseTitle, caseNumber: caseNumber ?? '', note: '' });
   const [showCustody, setShowCustody] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<CaseDocument | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -144,7 +147,7 @@ export default function CaseDetailClient({
   }
 
   async function removeDocument(document: CaseDocument) {
-    if (!window.confirm(`Remove "${document.title}" from this folder? The document itself is kept in Documents.`)) return;
+    setPendingRemoval(null);
     setBusy(true);
     try {
       await sendJson(`/api/cases/${encodeURIComponent(caseId)}/documents`, 'DELETE', { documentId: document.id });
@@ -249,7 +252,7 @@ export default function CaseDetailClient({
                   {canManage && (
                     <td onClick={(event) => event.stopPropagation()} style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       {document.canOpen && document.status !== 'Filed' && (
-                        <button type="button" className={docs.verifyButton} onClick={() => removeDocument(document)} disabled={busy}>
+                        <button type="button" className={docs.verifyButton} onClick={() => setPendingRemoval(document)} disabled={busy}>
                           Remove from folder
                         </button>
                       )}
@@ -332,6 +335,21 @@ export default function CaseDetailClient({
           </div>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingRemoval)}
+        tone="warning"
+        title="Remove from this folder?"
+        onClose={() => setPendingRemoval(null)}
+        actions={(
+          <>
+            <button type="button" className={shared.linkButton} onClick={() => setPendingRemoval(null)}>Cancel</button>
+            <button type="button" className={shared.button} onClick={() => { if (pendingRemoval) void removeDocument(pendingRemoval); }}>Remove</button>
+          </>
+        )}
+      >
+        <p>&ldquo;{pendingRemoval?.title}&rdquo; will be taken out of this folder. The document itself is kept in Documents.</p>
+      </ConfirmDialog>
 
       <StatusDialog message={message} error={error} onClose={() => setMessage('')} />
     </section>

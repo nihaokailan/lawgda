@@ -197,6 +197,8 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       profile={profile}
       title="Documents"
       subtitle="Case folder"
+      backHref="/cases"
+      backLabel="Back to Documents"
     >
       <RealtimeRefresh filter={`case_id=eq.${caseId}`} />
       <CaseDetailClient

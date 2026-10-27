@@ -6,10 +6,11 @@ import { documentOriginLabel, readDocumentOrigin } from '../../lib/documentOrigi
 
 /**
  * On document pages, returns to the list the document was opened from
- * (Dashboard or Documents). Elsewhere, returns to the previous page, or to
- * `fallbackHref` when the page was opened directly (e.g. from an email link).
+ * (Dashboard, Documents or a folder). Pages with a fixed parent (a folder's
+ * parent is Documents) pass `href`. Elsewhere, returns to the previous page,
+ * or to `fallbackHref` when the page was opened directly (e.g. from an email link).
  */
-export default function BackButton({ fallbackHref = '/dashboard', className, label = 'Go Back' }) {
+export default function BackButton({ fallbackHref = '/dashboard', className, label = 'Go Back', href = null }) {
   const router = useRouter();
   const pathname = usePathname();
   const onDocumentPage = pathname.startsWith('/documents/');
@@ -21,6 +22,10 @@ export default function BackButton({ fallbackHref = '/dashboard', className, lab
   }, [onDocumentPage, fallbackHref]);
 
   function handleBack() {
+    if (href) {
+      router.push(href);
+      return;
+    }
     if (onDocumentPage) {
       router.push(origin || fallbackHref);
       return;
@@ -32,7 +37,7 @@ export default function BackButton({ fallbackHref = '/dashboard', className, lab
     router.push(fallbackHref);
   }
 
-  const text = onDocumentPage ? documentOriginLabel(origin || fallbackHref) || 'Back to Dashboard' : label;
+  const text = href ? label : onDocumentPage ? documentOriginLabel(origin || fallbackHref) || 'Back to Dashboard' : label;
 
   return (
     <button type="button" className={className} onClick={handleBack}>

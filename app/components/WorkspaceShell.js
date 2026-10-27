@@ -14,6 +14,8 @@ export default function WorkspaceShell({
   dashboard = false,
   accountName = '',
   accountEmail = '',
+  backHref = null,
+  backLabel = 'Go Back',
 }) {
   return (
     <main className={`workspace-shell ${styles.shell} ${dashboard ? styles.dashboardShell : ''}`}>
@@ -35,7 +37,7 @@ export default function WorkspaceShell({
                 <h1 className={`workspace-title ${styles.title}`}>{title}</h1>
                 <p className={`workspace-subtitle ${styles.subtitle}`}>{subtitle}</p>
               </div>
-              <BackButton className={styles.headerBack} fallbackHref={HOME_BY_ROLE[profile.role] || '/dashboard'} />
+              <BackButton className={styles.headerBack} fallbackHref={HOME_BY_ROLE[profile.role] || '/dashboard'} href={backHref} label={backLabel} />
             </header>
           )}
           <div className={`workspace-content ${styles.content} ${dashboard ? styles.dashboardPageContent : ''}`}>
