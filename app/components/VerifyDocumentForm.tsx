@@ -1,5 +1,6 @@
 'use client';
 
+import HashComparison from './HashComparison';
 import { useRouter } from 'next/navigation';
 import { saveVerificationSession } from '../../lib/verificationSession';
 import { useEffect, useRef, useState } from 'react';
@@ -132,13 +133,13 @@ export default function VerifyDocumentForm() {
       </button>
       {error && <p className={`${shared.message} ${shared.messageError}`} role="alert">{error}</p>}
       {result && <div aria-live="polite" style={{ marginTop: 16 }}>
-        <p className={`${shared.message} ${result.matches ? shared.messageSuccess : shared.messageError}`}>
-          {result.matches ? 'Integrity verified — the file matches the recorded document version.' : 'Hash mismatch — this file does not match the selected document version.'}
-        </p>
-        <p className={shared.cardText}>Computed SHA-256</p>
-        <pre className={shared.hashBlock}>{result.computedHash}</pre>
-        <p className={shared.cardText}>Recorded SHA-256</p>
-        <pre className={shared.hashBlock}>{result.expectedHash}</pre>
+        <HashComparison
+          verdict={result.matches ? 'match' : 'mismatch'}
+          message={result.matches ? 'Integrity verified — the file is identical to the recorded document version.' : 'This file does not match the selected document version. It is a different file or it was altered.'}
+          checkedHash={result.computedHash}
+          recordedHash={result.expectedHash}
+          checkedLabel="Your file's SHA-256"
+        />
       </div>}
     </div>
   );

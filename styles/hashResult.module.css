@@ -1,0 +1,114 @@
+.result {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1rem 0;
+}
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-card);
+  border: 2px solid currentColor;
+}
+
+.verdictIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.verdictIcon svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.verdictWord {
+  display: block;
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+}
+
+.verdictText {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.match { color: #047857; background: #ecfdf5; }
+.mismatch { color: #b91c1c; background: #fef2f2; }
+.earlier { color: #92400e; background: #fffbeb; }
+
+.hashes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.hashBox {
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-card);
+  border: 2px solid var(--border);
+  background: var(--surface);
+}
+
+.hashBoxMatch { border-color: #34d399; }
+.hashBoxMismatch { border-color: #f87171; }
+.hashBoxEarlier { border-color: #fbbf24; }
+
+.hashLabel {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hashValue {
+  display: block;
+  font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: clamp(0.9rem, 1.4vw, 1.05rem);
+  font-weight: 700;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.diff {
+  background: #fecaca;
+  color: #7f1d1d;
+  border-radius: 2px;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+}
+
+.diffNote {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .hashes {
+    grid-template-columns: 1fr;
+  }
+}

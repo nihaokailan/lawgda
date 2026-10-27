@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import shared from '../../styles/shared.module.css';
+import HashComparison from './HashComparison';
 
 type CheckResult = {
   outcome: 'authentic' | 'earlier_version' | 'breach';
@@ -51,8 +52,6 @@ export default function PublicFileCheck({ auditToken }: { auditToken: string }) 
     }
   }
 
-  const tone = result?.outcome === 'authentic' ? '#047857' : result?.outcome === 'earlier_version' ? '#92400e' : '#991b1b';
-
   return (
     <section className={shared.sectionCard} style={{ marginBottom: '1rem' }}>
       <h2 className={shared.cardTitle}>Check a copy of this document</h2>
@@ -64,15 +63,18 @@ export default function PublicFileCheck({ auditToken }: { auditToken: string }) 
       {busy && <p className={shared.helpText}>Calculating SHA-256…</p>}
       {error && <p role="alert" style={{ color: '#991b1b' }}>{error}</p>}
       {result && (
-        <div role="status" style={{ marginTop: '0.75rem', borderLeft: `4px solid ${tone}`, paddingLeft: '0.75rem' }}>
-          <p style={{ color: tone, fontWeight: 700, margin: 0 }}>
-            {result.outcome === 'authentic' && '✓ Authentic — this file is identical to the final signed document.'}
-            {result.outcome === 'earlier_version' && `⚠ Genuine but not final — this file matches ${versionLabel(result.matchedVersion)}.`}
-            {result.outcome === 'breach' && '✗ INTEGRITY BREACH — this file does not match any version recorded by Lawgda. It may have been altered.'}
-          </p>
-          <p className={shared.helpText} style={{ overflowWrap: 'anywhere' }}><strong>Your file:</strong> {result.computedHash}</p>
-          {result.expectedHash && <p className={shared.helpText} style={{ overflowWrap: 'anywhere' }}><strong>Recorded final hash:</strong> {result.expectedHash}</p>}
-        </div>
+        <HashComparison
+          verdict={result.outcome === 'authentic' ? 'match' : result.outcome === 'earlier_version' ? 'earlier' : 'mismatch'}
+          message={result.outcome === 'authentic'
+            ? 'Authentic — this file is identical to the final signed document.'
+            : result.outcome === 'earlier_version'
+              ? `Genuine but not final — this file matches ${versionLabel(result.matchedVersion)}.`
+              : 'Integrity breach — this file does not match any version recorded by Lawgda. It may have been altered.'}
+          checkedHash={result.computedHash}
+          recordedHash={result.expectedHash}
+          checkedLabel="Your file's SHA-256"
+          recordedLabel="Recorded final SHA-256"
+        />
       )}
     </section>
   );

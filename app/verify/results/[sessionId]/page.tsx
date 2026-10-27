@@ -7,6 +7,7 @@ import { getVerificationSession, type VerificationSession } from '../../../../li
 import { readStoredDocument } from '../../../../lib/documentVerification';
 import shared from '../../../../styles/shared.module.css';
 import TopNav from '../../../components/TopNav';
+import HashComparison from '../../../components/HashComparison';
 import BackButton from '../../../components/BackButton';
 import styles from './results.module.css';
 
@@ -64,8 +65,12 @@ export default function VerificationResults({ params }: { params: { sessionId: s
     <TopNav />
     <div className={styles.pageContent}>
     <header className={styles.header}><div><p className={styles.eyebrow}>Verification <span aria-hidden="true">/</span> Results</p><h1>{session.title}</h1></div><div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}><BackButton className={shared.linkButton} fallbackHref="/verify" /><Link href="/verify" className={shared.linkButton}>Verify another document</Link></div></header>
-    <div className={`${shared.message} ${session.matches ? shared.messageSuccess : shared.messageError}`} role="status">{session.matches ? 'Integrity verified — the checked file matches the recorded document version.' : 'Hash mismatch — the checked file does not match the recorded document version.'}</div>
-    <div className={styles.hashSummary}><div><strong>Checked file SHA-256</strong><code>{session.computedHash}</code></div><div><strong>Recorded SHA-256</strong><code>{session.expectedHash}</code></div></div>
+    <HashComparison
+      verdict={session.matches ? 'match' : 'mismatch'}
+      message={session.matches ? 'Integrity verified — the checked file is identical to the recorded document version.' : 'The checked file does not match the recorded document version. It is a different file or it was altered.'}
+      checkedHash={session.computedHash}
+      recordedHash={session.expectedHash}
+    />
     <div className={styles.columns}>
       <section className={styles.panel}><h2>{session.source === 'device' ? 'Your selected file' : `Verified ${session.version} document`}</h2><p>{session.checkedName}</p>{checkedUrl && (session.checkedFile.type === 'application/pdf' || session.checkedName.toLowerCase().endsWith('.pdf') ? <iframe className={styles.preview} title="Checked document" src={checkedUrl} /> : <p>This file type cannot be previewed in the browser. <a href={checkedUrl} download={session.checkedName}>Download the checked file</a></p>)}</section>
       <section className={styles.panel}><h2>{referenceLabel}</h2><p>{session.title}</p>{fileError ? <p role="alert">{fileError}</p> : referenceUrl ? (referenceIsPdf ? <iframe className={styles.preview} title="Lawgda comparison document" src={referenceUrl} /> : <p>This file type cannot be previewed in the browser. <a href={referenceUrl} download={session.title}>Download the Lawgda document</a></p>) : <p>Loading document…</p>}</section>

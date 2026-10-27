@@ -38,19 +38,13 @@
   text-transform: uppercase;
 }
 
-.columns,
-.hashSummary {
+.columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin: 1rem 0;
 }
 
-.hashSummary {
-  font-size: 0.78rem;
-}
-
-.hashSummary code,
 .entry code {
   display: block;
   overflow-wrap: anywhere;
@@ -156,8 +150,7 @@
     flex-direction: column;
   }
 
-  .columns,
-  .hashSummary {
+  .columns {
     grid-template-columns: 1fr;
   }
 
