@@ -6,6 +6,7 @@ import { loadMySigningTurns } from '../../lib/signingTurn';
 import { requireDocumentAccess } from '../../lib/authGuard';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getSupabaseAdmin } from '../../lib/supabaseAdmin';
+import { CASE_MANAGER_ROLES } from '../../lib/caseFolders';
 
 export const revalidate = 0; // Always fetch fresh data, no caching
 
@@ -70,6 +71,23 @@ async function loadAdminDocumentFallback(userId) {
   ));
 }
 
+// Case folders of the user's firm, shown alongside documents like folders in a drive.
+async function loadFirmFolders(orgId) {
+  const { data } = await getSupabaseAdmin()
+    .from('cases')
+    .select('id,title,case_number,created_at,documents(count)')
+    .eq('org_id', orgId)
+    .order('title', { ascending: true })
+    .limit(500);
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    title: row.title || 'Untitled folder',
+    caseNumber: row.case_number ?? null,
+    documentCount: Array.isArray(row.documents) ? Number(row.documents[0]?.count ?? 0) : 0,
+    createdAt: row.created_at,
+  }));
+}
+
 function getInitials(label) {
   const source = String(label || 'U').trim();
   const parts = source.split(/[\s@._-]+/).filter(Boolean);
@@ -83,9 +101,11 @@ export default async function CasesPage() {
 
   // Independent loads, run concurrently. Stored files without a document row
   // are given one by the dashboard's backfill, so Storage isn't listed here.
-  let [rawDocs, sharedDocs] = await Promise.all([
+  const canUseFolders = CASE_MANAGER_ROLES.includes(profile.role) && Boolean(profile.org_id);
+  let [rawDocs, sharedDocs, folderRows] = await Promise.all([
     loadDocumentsForCasesPage(supabase),
     loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id),
+    canUseFolders ? loadFirmFolders(profile.org_id) : [],
   ]);
   if (!rawDocs.length) {
     rawDocs = await loadAdminDocumentFallback(user.id);
@@ -114,6 +134,7 @@ export default async function CasesPage() {
 
   sharedDocs.forEach((record) => permissionDocIds.add(record.id));
 
+  const folderIds = new Set(folderRows.map((folder) => folder.id));
   const turns = await loadMySigningTurns(getSupabaseAdmin(), user.email, allDocs.map((doc) => doc.id));
 
   const documents = [...userOwnedDocs, ...allDocs]
@@ -144,6 +165,8 @@ export default async function CasesPage() {
         caseNumber: record.case_number ?? null,
         tags: Array.isArray(record.tags) ? record.tags : [],
         myAction: turns.get(record.id)?.state ?? null,
+        // Only folders this user can open hide their documents from the top level.
+        folderId: record.case_id && folderIds.has(record.case_id) ? record.case_id : null,
       };
     })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -156,7 +179,7 @@ export default async function CasesPage() {
       subtitle="Search, open and track your documents."
     >
       <RealtimeRefresh />
-      <DocumentsWorkspaceClient documents={documents} />
+      <DocumentsWorkspaceClient documents={documents} folders={folderRows} canCreateFolders={canUseFolders} />
     </WorkspaceShell>
   );
 }

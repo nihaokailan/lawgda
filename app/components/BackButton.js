@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { DOCUMENT_ORIGINS, readDocumentOrigin } from '../../lib/documentOrigin';
+import { documentOriginLabel, readDocumentOrigin } from '../../lib/documentOrigin';
 
 /**
  * On document pages, returns to the list the document was opened from
@@ -32,7 +32,7 @@ export default function BackButton({ fallbackHref = '/dashboard', className, lab
     router.push(fallbackHref);
   }
 
-  const text = onDocumentPage ? DOCUMENT_ORIGINS[origin || fallbackHref] || 'Back to Dashboard' : label;
+  const text = onDocumentPage ? documentOriginLabel(origin || fallbackHref) || 'Back to Dashboard' : label;
 
   return (
     <button type="button" className={className} onClick={handleBack}>

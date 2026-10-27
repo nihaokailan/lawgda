@@ -42,3 +42,13 @@ test('labels case folder events in the audit trail', () => {
   assert.equal(auditEventLabel({ event_type: 'added_to_case', details: { case_title: 'People v. Santos' } }), 'Added to case folder People v. Santos');
   assert.equal(auditEventLabel({ event_type: 'removed_from_case', details: {} }), 'Removed from case folder');
 });
+
+test('documents opened from a folder go back to that folder', async () => {
+  const originSource = await readFile(new URL('../lib/documentOrigin.js', import.meta.url), 'utf8');
+  const { documentOriginLabel } = await import(asDataUrl(originSource));
+  assert.equal(documentOriginLabel('/cases/0c9f4b7e-1d2a-4f3b-9c8d-7e6f5a4b3c2d'), 'Back to folder');
+  assert.equal(documentOriginLabel('/cases'), 'Back to Documents');
+  assert.equal(documentOriginLabel('/dashboard'), 'Back to Dashboard');
+  assert.equal(documentOriginLabel('/cases/not-a-folder'), null);
+  assert.equal(documentOriginLabel('https://evil.example/cases/0c9f4b7e-1d2a-4f3b-9c8d-7e6f5a4b3c2d'), null);
+});

@@ -37,6 +37,6 @@ export async function POST(request) {
     return NextResponse.json({ error: message }, { status });
   }
 
-  revalidatePath('/case-folders');
+  revalidatePath('/cases');
   return NextResponse.json({ success: true, case: { id: created.id, title: created.title, caseNumber: created.case_number } });
 }

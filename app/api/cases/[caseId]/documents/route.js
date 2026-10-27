@@ -46,7 +46,6 @@ async function changeMembership(request, params, functionName) {
 
   revalidatePath(`/cases/${caseId}`);
   revalidatePath(`/documents/${documentId}`);
-  revalidatePath('/case-folders');
   revalidatePath('/cases');
   return NextResponse.json({ success: true, document: { id: updated.id, caseId: updated.case_id, caseNumber: updated.case_number } });
 }

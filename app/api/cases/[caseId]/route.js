@@ -55,7 +55,6 @@ export async function PATCH(request, { params }) {
   }
 
   revalidatePath(`/cases/${caseId}`);
-  revalidatePath('/case-folders');
   revalidatePath('/cases');
   return NextResponse.json({ success: true, case: { id: updated.id, title: updated.title, caseNumber: updated.case_number } });
 }

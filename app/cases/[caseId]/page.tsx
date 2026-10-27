@@ -1,6 +1,5 @@
 import WorkspaceShell from '../../components/WorkspaceShell';
 import { requireDocumentAccess } from '../../../lib/authGuard';
-import { ROLE_LABELS } from '../../../lib/roles';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import CaseDetailClient from './CaseDetailClient';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
@@ -179,8 +178,8 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
   return (
     <WorkspaceShell
       profile={profile}
-      title="Case Detail"
-      subtitle={`Role: ${ROLE_LABELS[profile.role] ?? profile.role}.`}
+      title="Documents"
+      subtitle="Case folder"
     >
       <RealtimeRefresh filter={`case_id=eq.${caseId}`} />
       <CaseDetailClient

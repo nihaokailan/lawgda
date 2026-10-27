@@ -1,13 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UploadToCaseModal from '../../components/UploadToCaseModal';
 import AddSignerModal from '../../components/AddSignerModal';
-import CaseQrCard from '../../components/CaseQrCard';
+import { useFolderLabel } from '../../components/CaseQrCard';
 import StatusDialog from '../../components/StatusDialog';
+import { rememberDocumentOrigin } from '../../../lib/documentOrigin';
 import AuditTrailList, { type AuditTrailEntry } from '../../components/AuditTrailList';
+import docs from '../../../styles/documents.module.css';
 import styles from '../../../styles/dashboard.module.css';
 
 type CaseDocument = {
@@ -27,10 +29,12 @@ type AddableDocument = {
   caseNumber: string | null;
 };
 
-function hashSnippet(value: string | null) {
-  if (!value) return '-';
-  return value.length > 14 ? `${value.slice(0, 10)}...` : value;
-}
+const STATUS_PILL_CLASS: Record<string, string> = {
+  Filed: 'statusPillCompleted',
+  Signed: 'statusPillCompleted',
+  Pending: 'statusPillPending',
+  Drafting: 'statusPillDrafts',
+};
 
 async function sendJson(url: string, method: string, body: Record<string, unknown>) {
   const response = await fetch(url, {
@@ -41,6 +45,22 @@ async function sendJson(url: string, method: string, body: Record<string, unknow
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || 'Unable to save the changes.');
   return payload;
+}
+
+function Dialog({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label={label}>
+      <div className={styles.modalCard}>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.sectionTitle}>{label}</h3>
+          <button type="button" className={styles.modalClose} onClick={onClose} aria-label="Close" title="Close">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export default function CaseDetailClient({
@@ -63,10 +83,12 @@ export default function CaseDetailClient({
   activity: AuditTrailEntry[];
 }) {
   const router = useRouter();
+  const label = useFolderLabel({ caseId, caseTitle, caseNumber });
+  useEffect(() => { rememberDocumentOrigin(`/cases/${caseId}`); }, [caseId]);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [isAddOpen, setAddOpen] = useState(false);
+  const [isRenameOpen, setRenameOpen] = useState(false);
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
-  const [renaming, setRenaming] = useState(false);
   const [renameForm, setRenameForm] = useState({ title: caseTitle, caseNumber: caseNumber ?? '', note: '' });
   const [signerDocumentId, setSignerDocumentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,14 +105,19 @@ export default function CaseDetailClient({
     setMessage(text);
   }
 
+  function closeRename() {
+    setRenameOpen(false);
+    setRenameForm({ title: caseTitle, caseNumber: caseNumber ?? '', note: '' });
+  }
+
   async function saveRename(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     try {
       await sendJson(`/api/cases/${encodeURIComponent(caseId)}`, 'PATCH', renameForm);
-      setRenaming(false);
+      setRenameOpen(false);
       setRenameForm((current) => ({ ...current, note: '' }));
-      report('Case saved. Documents in this case (except Filed ones) now carry the new case number, and each change is logged.');
+      report('Folder saved. Its documents (except Filed ones) now carry the new case number, and each change is logged.');
       router.refresh();
     } catch (failure) {
       report(failure instanceof Error ? failure.message : 'Unable to save the changes.', true);
@@ -114,21 +141,27 @@ export default function CaseDetailClient({
     setBusy(false);
     setAddOpen(false);
     setSelectedToAdd([]);
-    report(failures.length ? `Some documents were not added. ${failures.join(' ')}` : 'Documents added. Their case number now matches this case.', failures.length > 0);
+    report(failures.length ? `Some documents were not added. ${failures.join(' ')}` : 'Documents added. Their case number now matches this folder.', failures.length > 0);
     router.refresh();
   }
 
   async function removeDocument(document: CaseDocument) {
-    if (!window.confirm(`Remove "${document.title}" from this case? The document itself is kept.`)) return;
+    if (!window.confirm(`Remove "${document.title}" from this folder? The document itself is kept in Documents.`)) return;
     setBusy(true);
     try {
       await sendJson(`/api/cases/${encodeURIComponent(caseId)}/documents`, 'DELETE', { documentId: document.id });
-      report('Document removed from this case.');
+      report('Document moved out of this folder.');
       router.refresh();
     } catch (failure) {
       report(failure instanceof Error ? failure.message : 'Unable to remove the document.', true);
     } finally {
       setBusy(false);
+    }
+  }
+
+  function printLabel() {
+    if (!label.printLabel()) {
+      report('Your browser blocked the print window. Allow pop-ups for this site, then try again.', true);
     }
   }
 
@@ -139,111 +172,96 @@ export default function CaseDetailClient({
   }
 
   return (
-    <>
-      <section className={styles.banner}>
-        <p className={styles.bannerLabel}>Case Folder</p>
-        <h2 className={styles.bannerTitle}>{caseTitle}</h2>
-        <p className={styles.bannerSubtitle}>
-          Case number: {caseNumber || 'not set'} · {canManage ? 'You can manage this case.' : 'You see only the documents shared with you.'}
-        </p>
-      </section>
+    <section className={docs.docsShell}>
+      <nav aria-label="Breadcrumb" style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '0.5rem' }}>
+        <Link href="/cases">Documents</Link> <span aria-hidden="true">/</span> <span>{caseTitle}</span>
+      </nav>
 
-      {canManage && (
-        <section className={styles.quickActions}>
-          <div className={styles.queueHeader}>
-            <h3 className={styles.sectionTitle}>Manage Case</h3>
-            <span className={styles.queueCount}>{sortedDocuments.length}</span>
-          </div>
-          <div className={styles.quickActionRow}>
-            <button type="button" className={styles.primaryActionButton} onClick={() => setUploadOpen(true)} disabled={busy}>
-              Upload to Case
-            </button>
-            <button type="button" className={styles.secondaryActionButton} onClick={() => setAddOpen(true)} disabled={busy}>
-              Add existing documents
-            </button>
-            <button type="button" className={styles.secondaryActionButton} onClick={() => setRenaming(true)} disabled={busy || renaming}>
-              Rename case
-            </button>
-          </div>
+      <header className={docs.sectionHeader}>
+        <div>
+          <h2 className={docs.sectionTitle} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style={{ fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, color: 'var(--crimson)' }}>
+              <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            </svg>
+            {caseTitle}
+          </h2>
+          <p style={{ margin: '0.25rem 0 0', color: 'var(--muted)' }}>
+            Case number: {caseNumber || 'not set'} · {sortedDocuments.length} {sortedDocuments.length === 1 ? 'document' : 'documents'}
+            {!canManage && ' · You see only the documents shared with you.'}
+          </p>
+        </div>
+      </header>
 
-          {renaming && (
-            <form onSubmit={saveRename} className={styles.modalBody} style={{ marginTop: '1rem' }}>
-              <label className={styles.modalLabel}>
-                Case title
-                <input className={styles.modalInput} value={renameForm.title} maxLength={200} required onChange={(event) => setRenameForm({ ...renameForm, title: event.target.value })} />
-              </label>
-              <label className={styles.modalLabel}>
-                Case number
-                <input className={styles.modalInput} value={renameForm.caseNumber} maxLength={80} placeholder="for ex. Civil Case No. R-DVO-26-01234" onChange={(event) => setRenameForm({ ...renameForm, caseNumber: event.target.value })} />
-              </label>
-              <label className={styles.modalLabel}>
-                Reason for change (optional)
-                <input className={styles.modalInput} value={renameForm.note} maxLength={300} placeholder="for ex. Corrected the docket number" onChange={(event) => setRenameForm({ ...renameForm, note: event.target.value })} />
-              </label>
-              <p className={styles.infoText}>A new case number is applied to every document in this case except Filed ones, which keep the number they were filed under.</p>
-              <div className={styles.modalActions}>
-                <button type="submit" className={styles.primaryActionButton} disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
-                <button type="button" className={styles.secondaryActionButton} disabled={busy} onClick={() => { setRenaming(false); setRenameForm({ title: caseTitle, caseNumber: caseNumber ?? '', note: '' }); }}>Cancel</button>
-              </div>
-            </form>
-          )}
-        </section>
-      )}
-
-      <section className={styles.workspaceCard}>
-        <h3 className={styles.sectionTitle}>Case Documents</h3>
-        {sortedDocuments.length === 0 && <p className={styles.emptyText}>No documents in this case yet.</p>}
-
-        {sortedDocuments.length > 0 && (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Status</th>
-                  <th>SHA-256</th>
-                  <th>Created</th>
-                  {(isOwner || canManage) && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {sortedDocuments.map((document) => (
-                  <tr key={document.id}>
-                    <td><Link href={`/documents/${document.id}`}>{document.title}</Link></td>
-                    <td>{document.status}</td>
-                    <td className={styles.monoCell}>{hashSnippet(document.sha256Hash)}</td>
-                    <td>{new Date(document.createdAt).toLocaleString()}</td>
-                    {(isOwner || canManage) && (
-                      <td style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {isOwner && (
-                          <button type="button" className={styles.secondaryActionButton} onClick={() => setSignerDocumentId(document.id)}>
-                            Add Signer
-                          </button>
-                        )}
-                        {canManage && document.status !== 'Filed' && (
-                          <button type="button" className={styles.secondaryActionButton} onClick={() => removeDocument(document)} disabled={busy}>
-                            Remove from case
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className={docs.topActions} style={{ flexWrap: 'wrap', margin: '1rem 0' }} role="toolbar" aria-label="Folder actions">
+        {canManage && (
+          <>
+            <button type="button" className={docs.prepareButton} onClick={() => setUploadOpen(true)} disabled={busy}>Upload document</button>
+            <button type="button" className={docs.verifyButton} onClick={() => setAddOpen(true)} disabled={busy}>Add existing documents</button>
+            <button type="button" className={docs.verifyButton} onClick={() => setRenameOpen(true)} disabled={busy}>Rename</button>
+          </>
         )}
-      </section>
+        <button type="button" className={docs.verifyButton} onClick={printLabel} disabled={!label.qrDataUrl}>Print folder label</button>
+        {label.qrDataUrl && (
+          <a className={docs.verifyButton} href={label.qrDataUrl} download={label.downloadName}>Download QR</a>
+        )}
+      </div>
+
+      <div className={docs.resultsWrap}>
+        {sortedDocuments.length === 0 ? (
+          <p className={docs.emptyState}>{canManage ? 'This folder is empty. Upload a document or add existing ones.' : 'No documents in this folder are shared with you.'}</p>
+        ) : (
+          <table className={docs.table}>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Created</th>
+                {(isOwner || canManage) && <th aria-label="Actions" />}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedDocuments.map((document) => (
+                <tr
+                  key={document.id}
+                  tabIndex={0}
+                  role="link"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => router.push(`/documents/${document.id}`)}
+                  onKeyDown={(event) => { if (event.key === 'Enter' && event.target === event.currentTarget) router.push(`/documents/${document.id}`); }}
+                >
+                  <td>{document.title}</td>
+                  <td>
+                    <span className={`${docs.statusPill} ${docs[STATUS_PILL_CLASS[document.status] || 'statusPillDrafts']}`}>{document.status}</span>
+                  </td>
+                  <td>{new Date(document.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</td>
+                  {(isOwner || canManage) && (
+                    <td onClick={(event) => event.stopPropagation()} style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      {isOwner && (
+                        <button type="button" className={docs.verifyButton} onClick={() => setSignerDocumentId(document.id)} style={{ marginRight: '0.4rem' }}>
+                          Add signer
+                        </button>
+                      )}
+                      {canManage && document.status !== 'Filed' && (
+                        <button type="button" className={docs.verifyButton} onClick={() => removeDocument(document)} disabled={busy}>
+                          Remove from folder
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {activity.length > 0 && (
-        <section className={styles.workspaceCard}>
-          <h3 className={styles.sectionTitle}>Case Chain of Custody</h3>
-          <p className={styles.infoText}>Most recent recorded activity across this case&apos;s documents.</p>
+        <section className={styles.workspaceCard} style={{ marginTop: '1.5rem' }}>
+          <h3 className={styles.sectionTitle}>Folder Chain of Custody</h3>
+          <p className={styles.infoText}>Most recent recorded activity across this folder&apos;s documents.</p>
           <AuditTrailList entries={activity} maxHeight={360} />
         </section>
       )}
-
-      <CaseQrCard caseId={caseId} caseTitle={caseTitle} caseNumber={caseNumber} />
 
       <UploadToCaseModal
         open={isUploadOpen}
@@ -253,44 +271,59 @@ export default function CaseDetailClient({
         onUploaded={() => window.location.reload()}
       />
 
+      {isRenameOpen && (
+        <Dialog label="Rename folder" onClose={closeRename}>
+          <form onSubmit={saveRename} className={styles.modalBody}>
+            <label className={styles.modalLabel}>
+              Folder name
+              <input className={styles.modalInput} value={renameForm.title} maxLength={200} required autoFocus onChange={(event) => setRenameForm({ ...renameForm, title: event.target.value })} />
+            </label>
+            <label className={styles.modalLabel}>
+              Case number
+              <input className={styles.modalInput} value={renameForm.caseNumber} maxLength={80} placeholder="for ex. Civil Case No. R-DVO-26-01234" onChange={(event) => setRenameForm({ ...renameForm, caseNumber: event.target.value })} />
+            </label>
+            <label className={styles.modalLabel}>
+              Reason for change (optional)
+              <input className={styles.modalInput} value={renameForm.note} maxLength={300} placeholder="for ex. Corrected the docket number" onChange={(event) => setRenameForm({ ...renameForm, note: event.target.value })} />
+            </label>
+            <p className={styles.infoText}>A new case number is applied to every document in this folder except Filed ones, which keep the number they were filed under.</p>
+            <div className={styles.modalActions}>
+              <button type="submit" className={styles.primaryActionButton} disabled={busy}>{busy ? 'Saving...' : 'Save'}</button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
       {isAddOpen && (
-        <div className={styles.modalOverlay} role="dialog" aria-modal="true" aria-label="Add existing documents to case">
-          <div className={styles.modalCard}>
-            <div className={styles.modalHeader}>
-              <h3 className={styles.sectionTitle}>Add existing documents</h3>
-              <button type="button" className={styles.modalClose} onClick={() => { setAddOpen(false); setSelectedToAdd([]); }} aria-label="Close" title="Close">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15" /></svg>
+        <Dialog label="Add existing documents" onClose={() => { setAddOpen(false); setSelectedToAdd([]); }}>
+          <div className={styles.modalBody}>
+            <p className={styles.infoText}>
+              Your documents that are not in a folder yet. A document can be in one folder only; Filed documents are locked and can&apos;t be moved.
+            </p>
+            {addableDocuments.length === 0 && <p className={styles.emptyText}>No documents available to add.</p>}
+            <div style={{ display: 'grid', gap: '0.4rem', maxHeight: 320, overflowY: 'auto' }}>
+              {addableDocuments.map((document) => (
+                <label key={document.id} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={selectedToAdd.includes(document.id)} onChange={() => toggleSelected(document.id)} />
+                  <span>
+                    <strong>{document.title}</strong>
+                    <small style={{ display: 'block', color: 'var(--muted)' }}>
+                      {document.status}{document.caseNumber ? ` · current case number: ${document.caseNumber}` : ''}
+                    </small>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {selectedToAdd.length > 0 && (
+              <p className={styles.infoText}>Their case number will be changed to: <strong>{caseNumber || 'none'}</strong>.</p>
+            )}
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.primaryActionButton} onClick={addSelected} disabled={busy || selectedToAdd.length === 0}>
+                {busy ? 'Adding...' : `Add ${selectedToAdd.length || ''} to folder`}
               </button>
             </div>
-            <div className={styles.modalBody}>
-              <p className={styles.infoText}>
-                Showing your documents that are not in a case yet. A document can belong to one case only; Filed documents are locked and can&apos;t be added.
-              </p>
-              {addableDocuments.length === 0 && <p className={styles.emptyText}>No documents available to add.</p>}
-              <div style={{ display: 'grid', gap: '0.4rem', maxHeight: 320, overflowY: 'auto' }}>
-                {addableDocuments.map((document) => (
-                  <label key={document.id} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={selectedToAdd.includes(document.id)} onChange={() => toggleSelected(document.id)} />
-                    <span>
-                      <strong>{document.title}</strong>
-                      <small style={{ display: 'block', color: 'var(--muted)' }}>
-                        {document.status}{document.caseNumber ? ` · current case number: ${document.caseNumber}` : ''}
-                      </small>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {selectedToAdd.length > 0 && (
-                <p className={styles.infoText}>Their case number will be changed to: <strong>{caseNumber || 'none'}</strong>.</p>
-              )}
-              <div className={styles.modalActions}>
-                <button type="button" className={styles.primaryActionButton} onClick={addSelected} disabled={busy || selectedToAdd.length === 0}>
-                  {busy ? 'Adding...' : `Add ${selectedToAdd.length || ''} to case`}
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {signerDocumentId && (
@@ -303,6 +336,6 @@ export default function CaseDetailClient({
       )}
 
       <StatusDialog message={message} error={error} onClose={() => setMessage('')} />
-    </>
+    </section>
   );
 }

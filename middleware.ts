@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from './lib/supabase/middleware';
 
-const protectedRoutes = ['/dashboard', '/cases', '/case-folders', '/upload', '/profile', '/admin', '/platform'];
+const protectedRoutes = ['/dashboard', '/cases', '/upload', '/profile', '/admin', '/platform'];
 const exactProtectedRoutes = ['/verify'];
 const authRoutes = ['/signin', '/login'];
 
@@ -41,5 +41,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/cases/:path*', '/case-folders/:path*', '/upload/:path*', '/profile/:path*', '/admin/:path*', '/platform/:path*', '/verify', '/signin', '/login'],
+  matcher: ['/dashboard/:path*', '/cases/:path*', '/upload/:path*', '/profile/:path*', '/admin/:path*', '/platform/:path*', '/verify', '/signin', '/login'],
 };
