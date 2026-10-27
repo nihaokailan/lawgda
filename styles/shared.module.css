@@ -665,3 +665,14 @@
 .faqAnswer li + li {
   margin-top: 0.25rem;
 }
+
+/* Something the viewer has to act on (e.g. sign, file): stands apart from ordinary cards. */
+.actionCallout {
+  border: 1px solid #f0d9a8;
+  border-left: 5px solid #b45309;
+  background: #fdf6e3;
+}
+
+.actionCallout h3 {
+  color: #7a4a06;
+}

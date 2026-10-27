@@ -1329,3 +1329,29 @@
     align-items: start;
   }
 }
+
+/* A document waiting on the viewer's signature: the row and its button stand out. */
+.rowNeedsAction td {
+  background: #fdf6e3;
+}
+
+.rowNeedsAction td:first-child {
+  box-shadow: inset 4px 0 0 #b45309;
+}
+
+.badgeAction {
+  border: 0;
+  background: var(--crimson);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.badgeAction:hover,
+.badgeAction:focus-visible {
+  background: var(--crimson-dark);
+}
+
+.attentionPending {
+  border-left: 4px solid #b45309;
+  font-weight: 600;
+}

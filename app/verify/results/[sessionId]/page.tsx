@@ -10,7 +10,7 @@ import TopNav from '../../../components/TopNav';
 import BackButton from '../../../components/BackButton';
 import styles from './results.module.css';
 
-type AuditEntry = { id: string; event_type: string; created_at: string; actor_email?: string; details?: Record<string, unknown>; title?: string; lines?: string[]; actorName?: string; actorRole?: string };
+type AuditEntry = { id: string; event_type: string; created_at: string; actor_email?: string; details?: Record<string, unknown>; title?: string; lines?: string[]; actorName?: string; actorRole?: string; actorEmail?: string | null };
 type ChainEntry = { signer_name?: string; signer_email?: string; signed_at?: string; pre_sign_hash?: string; post_sign_hash?: string };
 
 export default function VerificationResults({ params }: { params: { sessionId: string } }) {
@@ -76,7 +76,7 @@ export default function VerificationResults({ params }: { params: { sessionId: s
         {!audit ? <p>{auditError || 'Loading hash chain…'}</p> : audit.hashChain.length === 0 ? <p>No completed signatures recorded.</p> : audit.hashChain.map((entry, index) => <article className={styles.entry} key={index}><strong>{index + 1}. {entry.signer_name || entry.signer_email || 'Signer'}</strong><p>{entry.signed_at ? new Date(entry.signed_at).toLocaleString() : ''}</p><small>Before signing</small><code>{entry.pre_sign_hash || 'Not recorded'}</code><small>After signing</small><code>{entry.post_sign_hash || 'Not recorded'}</code></article>)}
       </div></section>
       <section className={styles.panel}><h2>Audit trail</h2>{audit && <p>Document audit: {status(audit.chainIntegrity.auditLogsValid)} · Signing audit: {status(audit.chainIntegrity.signingAuditValid)}</p>}<div className={styles.scroll} tabIndex={0} role="region" aria-label="Audit trail">
-        {!audit ? <p>{auditError || 'Loading audit trail…'}</p> : audit.auditTrail.length === 0 ? <p>No audit events recorded.</p> : audit.auditTrail.map(entry => <article className={styles.entry} key={`${entry.id}-${entry.event_type}`}><strong>{entry.title || auditEventLabel(entry)}</strong><p>By {entry.actorName || 'System'}{entry.actorRole ? ` (${entry.actorRole})` : ''} · {new Date(entry.created_at).toLocaleString()}</p>{(entry.lines || []).map(line => <small key={line}>{line}</small>)}</article>)}
+        {!audit ? <p>{auditError || 'Loading audit trail…'}</p> : audit.auditTrail.length === 0 ? <p>No audit events recorded.</p> : audit.auditTrail.map(entry => <article className={styles.entry} key={`${entry.id}-${entry.event_type}`}><strong>{entry.title || auditEventLabel(entry)}</strong><p>By {entry.actorName || 'System'}{entry.actorEmail ? ` <${entry.actorEmail}>` : ''}{entry.actorRole ? ` (${entry.actorRole})` : ''} · {new Date(entry.created_at).toLocaleString()}</p>{(entry.lines || []).map(line => <small key={line}>{line}</small>)}</article>)}
       </div></section>
     </div>
     </div>

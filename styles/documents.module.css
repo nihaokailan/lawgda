@@ -236,3 +236,35 @@
     min-width: 620px;
   }
 }
+
+.statusPillFiled {
+  background: #e8eef9;
+  color: #315e9b;
+}
+
+/* A document waiting on the viewer's signature: the row and its button stand out. */
+.rowNeedsAction td {
+  background: #fdf6e3;
+}
+
+.rowNeedsAction td:first-child {
+  box-shadow: inset 4px 0 0 #b45309;
+}
+
+.actionPill {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--crimson);
+  color: #ffffff;
+  padding: 0.3rem 0.7rem;
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.actionPill:hover,
+.actionPill:focus-visible {
+  background: var(--crimson-dark);
+}

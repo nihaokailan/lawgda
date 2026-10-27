@@ -204,6 +204,7 @@ export default function DashboardClient({
                     {pagedDocuments.map((document) => (
                       <tr
                         key={document.id ?? `${document.title}-${document.createdAt}`}
+                        className={document.myAction === 'sign' ? styles.rowNeedsAction : undefined}
                         style={{ cursor: document.id ? 'pointer' : undefined }}
                         tabIndex={document.id ? 0 : undefined}
                         role={document.id ? 'link' : undefined}
@@ -216,7 +217,7 @@ export default function DashboardClient({
                         </td>
                         <td>
                           {document.id && document.myAction === 'sign' ? (
-                            <SignNowButton documentId={document.id} label="Sign now" className={`${styles.statusBadge} ${styles.badgePending}`} style={{ cursor: 'pointer', border: 0 }} />
+                            <SignNowButton documentId={document.id} label="Sign now" className={`${styles.statusBadge} ${styles.badgeAction}`} />
                           ) : document.myAction === 'waiting' ? (
                             <span className={`${styles.statusBadge} ${styles.badgeDrafting}`}>Awaiting others</span>
                           ) : (
@@ -241,11 +242,11 @@ export default function DashboardClient({
                   <h3 className={styles.sectionTitle}>Needs your attention</h3>
                   {signatureDocuments.length > 0 && (
                     <Link
-                      href={signatureDocuments[0].id ? `/documents/${signatureDocuments[0].id}/prepare` : '/cases'}
+                      href={signatureDocuments.length === 1 && signatureDocuments[0].id ? `/documents/${signatureDocuments[0].id}` : '/cases'}
                       className={`${styles.attentionItem} ${styles.attentionPending}`}
                     >
                       <span className={styles.attentionIcon} aria-hidden="true">◷</span>
-                      <span><strong>{signatureDocuments.length} {signatureDocuments.length === 1 ? 'document awaits' : 'documents await'} your signature</strong><small>Review pending</small></span>
+                      <span><strong>{signatureDocuments.length} {signatureDocuments.length === 1 ? 'document awaits' : 'documents await'} your signature</strong><small>{signatureDocuments.length === 1 ? 'Open it to sign' : 'Open Documents to sign them'}</small></span>
                     </Link>
                   )}
                   {draftDocuments.length > 0 && (

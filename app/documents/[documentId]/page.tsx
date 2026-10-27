@@ -98,7 +98,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
       </div>
       
       {profile.role === ROLES.LAWYER && document.status === 'Signed' && (
-        <div className={shared.sectionCard} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
+        <div className={`${shared.sectionCard} ${shared.actionCallout}`} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
           <h3 style={{ marginTop: 0 }}>Ready to file</h3>
           <p className={shared.cardText}>Everyone has signed. Mark it Filed once submitted. This can’t be undone.</p>
           <FileDocumentButton documentId={documentId} className={shared.button} />
@@ -106,7 +106,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
       )}
 
       {mySigningTurn && (
-        <div className={shared.sectionCard} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
+        <div className={`${shared.sectionCard} ${mySigningTurn.state === 'sign' ? shared.actionCallout : ''}`} style={{ marginTop: 0, marginBottom: '1.5rem' }}>
           {mySigningTurn.state === 'sign' ? (
             <>
               <h3 style={{ marginTop: 0 }}>Your signature is requested</h3>

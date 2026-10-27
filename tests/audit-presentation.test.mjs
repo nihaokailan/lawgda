@@ -27,3 +27,17 @@ test('shows who drafted, viewed and signed, and never leaks signing links', asyn
   assert.equal(entries[4].actorName, 'System');
   assert.ok(!JSON.stringify(entries).includes('SECRET'));
 });
+
+test('shows the email of the person behind each audit entry', async () => {
+  const [member, signer, nameIsEmail, system] = await enrichAuditEntries(db, [
+    { id: 'a', event_type: 'document_viewed', actor_user_id: 'u1', details: {} },
+    { id: 'b', event_type: 'signing_completed', actor_type: 'external_signer', details: { signer_name: 'Ana Reyes', signer_email: 'ana@client.ph' } },
+    { id: 'c', event_type: 'signer_verified', actor_email: 'only@email.ph', details: {} },
+    { id: 'd', event_type: 'status_changed', details: {} },
+  ]);
+  assert.equal(member.actorEmail, 'k@firm.ph');
+  assert.equal(signer.actorEmail, 'ana@client.ph');
+  assert.equal(nameIsEmail.actorName, 'only@email.ph');
+  assert.equal(nameIsEmail.actorEmail, null);
+  assert.equal(system.actorEmail, null);
+});

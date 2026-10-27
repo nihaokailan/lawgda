@@ -5,6 +5,7 @@ export type AuditTrailEntry = {
   lines: string[];
   actorName: string;
   actorRole: string;
+  actorEmail?: string | null;
 };
 
 /** Who-did-what audit list. Scrolls inside its own box so long histories don't stretch the page. */
@@ -25,6 +26,7 @@ export default function AuditTrailList({ entries, maxHeight = 420 }: { entries: 
           <strong>{entry.title}</strong>
           <div style={{ fontSize: '0.85rem', marginTop: '0.15rem' }}>
             By <strong>{entry.actorName}</strong>
+            {entry.actorEmail && <span> ({entry.actorEmail})</span>}
             <span style={{ color: 'var(--muted)' }}> &middot; {entry.actorRole}</span>
           </div>
           <div style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>

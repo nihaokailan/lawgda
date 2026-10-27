@@ -62,7 +62,7 @@ function matchesFilter(filter: string, row: DocumentRow) {
 }
 
 const STATUS_PILL_CLASS: Record<string, string> = {
-  Filed: 'statusPillCompleted',
+  Filed: 'statusPillFiled',
   Signed: 'statusPillCompleted',
   Pending: 'statusPillPending',
   Drafts: 'statusPillDrafts',
@@ -268,6 +268,7 @@ export default function DocumentsWorkspaceClient({
                   key={`${item.kind}-${item.kind === 'folder' ? item.folder.id : item.document.id}`}
                   tabIndex={0}
                   role="link"
+                  className={item.kind === 'document' && item.document.myAction === 'sign' ? styles.rowNeedsAction : undefined}
                   style={{ cursor: 'pointer' }}
                   onClick={() => openItem(item)}
                   onKeyDown={(event) => { if (event.key === 'Enter') openItem(item); }}
@@ -305,7 +306,7 @@ export default function DocumentsWorkspaceClient({
                       </td>
                       <td>
                         {item.document.myAction === 'sign' ? (
-                          <SignNowButton documentId={item.document.id} label="Pending your signature — Sign now" className={`${styles.statusPill} ${styles.statusPillPending}`} style={{ cursor: 'pointer', border: 0 }} />
+                          <SignNowButton documentId={item.document.id} label="Your signature needed — Sign now" className={styles.actionPill} />
                         ) : item.document.myAction === 'waiting' ? (
                           <span className={`${styles.statusPill} ${styles.statusPillDrafts}`}>Waiting for other signers</span>
                         ) : (

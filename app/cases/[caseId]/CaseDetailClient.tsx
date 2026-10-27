@@ -30,7 +30,7 @@ type AddableDocument = {
 };
 
 const STATUS_PILL_CLASS: Record<string, string> = {
-  Filed: 'statusPillCompleted',
+  Filed: 'statusPillFiled',
   Signed: 'statusPillCompleted',
   Pending: 'statusPillPending',
   Drafting: 'statusPillDrafts',
