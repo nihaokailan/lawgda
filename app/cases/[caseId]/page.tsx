@@ -1,12 +1,13 @@
 import WorkspaceShell from '../../components/WorkspaceShell';
 import { requireDocumentAccess } from '../../../lib/authGuard';
-import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import CaseDetailClient from './CaseDetailClient';
 import { getSupabaseAdmin } from '../../../lib/supabaseAdmin';
 import { enrichAuditEntries } from '../../../lib/auditPresentation';
 import RealtimeRefresh from '../../components/RealtimeRefresh';
 import { notFound } from 'next/navigation';
 import { canManageCase } from '../../../lib/caseFolders';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type RawDocument = {
   id: string;
@@ -57,18 +58,21 @@ async function insertViewLogs(
 
 export default async function CaseDetailPage({ params }: { params: { caseId: string } }) {
   const { user, profile } = await requireDocumentAccess();
-  const supabase = createSupabaseServerClient();
   const admin = getSupabaseAdmin();
   const caseId = params.caseId;
+  if (!UUID.test(caseId)) {
+    notFound();
+  }
 
-  // RLS decides whether this user may see the case at all: firm Lawyers/Staff,
-  // the creator, or someone granted access to a document in it.
-  const { data: caseRow } = await supabase
+  // Read with the service role and checked here (browser-session reads of
+  // documents hit a recursive RLS policy): firm Lawyers/Staff manage the
+  // folder; anyone else needs access to at least one document in it.
+  const { data: caseRow } = await admin
     .from('cases')
-    .select('id,title,case_number,org_id,owner_id,user_id,created_at')
+    .select('id,title,case_number,org_id,owner_id,created_at')
     .eq('id', caseId)
     .maybeSingle();
-  if (!caseRow) {
+  if (!caseRow || (caseRow.org_id && caseRow.org_id !== profile.org_id)) {
     notFound();
   }
 
@@ -80,15 +84,13 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
     .order('created_at', { ascending: false });
 
   const documents = (docsData ?? []) as RawDocument[];
-
-  const ownerId = (caseRow?.owner_id ?? caseRow?.user_id ?? null) as string | null;
-  const isOwner = ownerId === user.id || canManage;
+  const isOwner = caseRow.owner_id === user.id || canManage;
 
   const docIds = documents.map((document) => document.id);
   let signerPermissions = new Set<string>();
 
-  if (!isOwner && docIds.length > 0) {
-    const { data: perms } = await supabase
+  if (docIds.length > 0) {
+    const { data: perms } = await admin
       .from('document_permissions')
       .select('document_id')
       .eq('user_id', user.id)
@@ -97,21 +99,19 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
     signerPermissions = new Set((perms ?? []).map((row) => row.document_id));
   }
 
+  // Same rule as the document page: owner, uploader or an explicit grant.
+  const canOpen = (document: RawDocument) => (document.owner_id ?? document.user_id) === user.id
+    || document.uploaded_by === user.id
+    || signerPermissions.has(document.id);
+
+  if (!isOwner && !documents.some(canOpen)) {
+    notFound();
+  }
+
+  // Folder managers see every document in the folder (like the firm's
+  // Documents list); others see only the ones they can open.
   const visibleDocuments = documents
-    .filter((document) => {
-      const documentOwner = document.owner_id ?? document.user_id;
-      const uploaderId = document.uploaded_by ?? null;
-      if (documentOwner === user.id) {
-        return true;
-      }
-      if (uploaderId === user.id) {
-        return true;
-      }
-      if (isOwner) {
-        return true;
-      }
-      return signerPermissions.has(document.id);
-    })
+    .filter((document) => canManage || canOpen(document))
     .map((document) => ({
       id: document.id,
       title: document.title || document.name || document.filename || 'Untitled Document',
@@ -120,6 +120,7 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       status: normalizeStatus(document.status),
       createdAt: document.created_at || new Date().toISOString(),
       ownerId: (document.owner_id || document.user_id || '') as string,
+      canOpen: canOpen(document),
     }));
 
   // Access to each document was checked above, so the case-wide activity feed
@@ -157,7 +158,7 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
       .select('id,title,name,filename,status,case_number,owner_id,user_id,uploaded_by,created_at')
       .eq('org_id', profile.org_id)
       .is('case_id', null)
-      .neq('status', 'Filed')
+      .or('status.is.null,status.neq.Filed')
       .order('created_at', { ascending: false })
       .limit(200);
     const rows = candidates ?? [];
@@ -187,7 +188,6 @@ export default async function CaseDetailPage({ params }: { params: { caseId: str
         caseTitle={caseTitle}
         caseNumber={(caseRow.case_number as string | null) ?? null}
         canManage={canManage}
-        isOwner={isOwner}
         addableDocuments={addableDocuments}
         documents={visibleDocuments}
         activity={activity}

@@ -68,7 +68,8 @@ export default async function DocumentViewPage({ params }: { params: { documentI
   const [turns, caseResult] = await Promise.all([
     loadMySigningTurns(getSupabaseAdmin(), user.email, [documentId]),
     document.case_id
-      ? supabase.from('cases').select('id,title').eq('id', document.case_id).maybeSingle()
+      // Access to this document was checked above.
+      ? getSupabaseAdmin().from('cases').select('id,title').eq('id', document.case_id).maybeSingle()
       : Promise.resolve({ data: null }),
     logDocumentAuditEvent({
       documentId,

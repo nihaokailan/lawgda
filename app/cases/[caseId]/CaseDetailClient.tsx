@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UploadToCaseModal from '../../components/UploadToCaseModal';
-import AddSignerModal from '../../components/AddSignerModal';
 import { useFolderLabel } from '../../components/CaseQrCard';
 import StatusDialog from '../../components/StatusDialog';
 import { rememberDocumentOrigin } from '../../../lib/documentOrigin';
@@ -20,6 +19,7 @@ type CaseDocument = {
   status: 'Drafting' | 'Pending' | 'Signed' | 'Filed';
   createdAt: string;
   ownerId: string;
+  canOpen: boolean;
 };
 
 type AddableDocument = {
@@ -68,7 +68,6 @@ export default function CaseDetailClient({
   caseTitle,
   caseNumber,
   canManage,
-  isOwner,
   documents,
   addableDocuments,
   activity,
@@ -77,7 +76,6 @@ export default function CaseDetailClient({
   caseTitle: string;
   caseNumber: string | null;
   canManage: boolean;
-  isOwner: boolean;
   documents: CaseDocument[];
   addableDocuments: AddableDocument[];
   activity: AuditTrailEntry[];
@@ -90,7 +88,6 @@ export default function CaseDetailClient({
   const [isRenameOpen, setRenameOpen] = useState(false);
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
   const [renameForm, setRenameForm] = useState({ title: caseTitle, caseNumber: caseNumber ?? '', note: '' });
-  const [signerDocumentId, setSignerDocumentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState(false);
@@ -216,32 +213,32 @@ export default function CaseDetailClient({
                 <th>Name</th>
                 <th>Status</th>
                 <th>Created</th>
-                {(isOwner || canManage) && <th aria-label="Actions" />}
+                {canManage && <th aria-label="Actions" />}
               </tr>
             </thead>
             <tbody>
               {sortedDocuments.map((document) => (
                 <tr
                   key={document.id}
-                  tabIndex={0}
-                  role="link"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => router.push(`/documents/${document.id}`)}
-                  onKeyDown={(event) => { if (event.key === 'Enter' && event.target === event.currentTarget) router.push(`/documents/${document.id}`); }}
+                  tabIndex={document.canOpen ? 0 : undefined}
+                  role={document.canOpen ? 'link' : undefined}
+                  style={{ cursor: document.canOpen ? 'pointer' : 'default' }}
+                  onClick={() => { if (document.canOpen) router.push(`/documents/${document.id}`); }}
+                  onKeyDown={(event) => { if (document.canOpen && event.key === 'Enter' && event.target === event.currentTarget) router.push(`/documents/${document.id}`); }}
                 >
-                  <td>{document.title}</td>
+                  <td>
+                    <div>{document.title}</div>
+                    {!document.canOpen && (
+                      <div style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '0.2rem' }}>Not shared with you; ask its owner for access.</div>
+                    )}
+                  </td>
                   <td>
                     <span className={`${docs.statusPill} ${docs[STATUS_PILL_CLASS[document.status] || 'statusPillDrafts']}`}>{document.status}</span>
                   </td>
                   <td>{new Date(document.createdAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</td>
-                  {(isOwner || canManage) && (
+                  {canManage && (
                     <td onClick={(event) => event.stopPropagation()} style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
-                      {isOwner && (
-                        <button type="button" className={docs.verifyButton} onClick={() => setSignerDocumentId(document.id)} style={{ marginRight: '0.4rem' }}>
-                          Add signer
-                        </button>
-                      )}
-                      {canManage && document.status !== 'Filed' && (
+                      {document.canOpen && document.status !== 'Filed' && (
                         <button type="button" className={docs.verifyButton} onClick={() => removeDocument(document)} disabled={busy}>
                           Remove from folder
                         </button>
@@ -324,15 +321,6 @@ export default function CaseDetailClient({
             </div>
           </div>
         </Dialog>
-      )}
-
-      {signerDocumentId && (
-        <AddSignerModal
-          open={Boolean(signerDocumentId)}
-          documentId={signerDocumentId}
-          onClose={() => setSignerDocumentId(null)}
-          onChanged={() => window.location.reload()}
-        />
       )}
 
       <StatusDialog message={message} error={error} onClose={() => setMessage('')} />

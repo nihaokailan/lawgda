@@ -5,7 +5,6 @@ import { ROLES } from '../../../../lib/rbac';
 import { requireWorkspaceMember, rbacErrorResponse } from '../../../../lib/rbacMiddleware';
 import { sha256Hex } from '../../../../lib/documentHash';
 import { logDocumentAuditEvent } from '../../../../lib/auditLog';
-import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { INCOMING_PREFIX, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, UPLOAD_BUCKETS } from '../../../../lib/uploadLimits';
 import { parseTags, validateIndexFields } from '../../../../lib/documentIndexing';
 
@@ -91,6 +90,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const UUID_ONLY = new RegExp(`^${UUID}$`, 'i');
 
 /**
  * Step 2 of an upload (step 1 is /api/documents/upload-url): the browser has
@@ -139,9 +139,10 @@ export async function POST(request) {
     }
 
     if (caseId) {
-      // Read through the caller's own RLS-scoped client: a case they cannot see is treated as missing.
-      const { data: caseRow } = await createSupabaseServerClient()
-        .from('cases').select('id,org_id,case_number').eq('id', caseId).maybeSingle();
+      // Only a folder of the uploader's own firm (the caller is already a firm Lawyer/Staff).
+      const { data: caseRow } = UUID_ONLY.test(caseId)
+        ? await supabaseAdmin.from('cases').select('id,org_id,case_number').eq('id', caseId).maybeSingle()
+        : { data: null };
       if (!caseRow || caseRow.org_id !== profile.org_id) {
         await supabaseAdmin.storage.from(bucket).remove([incomingPath]);
         return NextResponse.json({ error: 'Case not found.' }, { status: 404 });
