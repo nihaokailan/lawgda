@@ -82,18 +82,6 @@
   color: var(--text);
 }
 
-.diff {
-  background: #fde2e2;
-  color: #991b1b;
-  border-radius: 2px;
-}
-
-.diffNote {
-  margin: 0;
-  color: #991b1b;
-  font-size: 0.82rem;
-}
-
 @media (max-width: 760px) {
   .hashes {
     grid-template-columns: 1fr;

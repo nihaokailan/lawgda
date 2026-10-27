@@ -8,31 +8,10 @@ const VERDICT = {
   earlier: { word: 'Earlier version', className: styles.earlier, boxClass: styles.hashBoxEarlier, icon: <><path d="M12 5v9" /><path d="M12 19h.01" /></> },
 };
 
-/** Characters of `value` that differ from `other` at the same position are wrapped in <mark>. */
-function HashText({ value, other, highlight }: { value: string; other: string | null; highlight: boolean }) {
-  if (!highlight || !other) return <code className={styles.hashValue}>{value}</code>;
-  return (
-    <code className={styles.hashValue}>
-      {[...value].map((character, index) => (character === other[index]
-        ? character
-        // eslint-disable-next-line react/no-array-index-key
-        : <mark key={index} className={styles.diff}>{character}</mark>))}
-    </code>
-  );
-}
-
-function countDifferences(first: string, second: string) {
-  let count = Math.abs(first.length - second.length);
-  for (let index = 0; index < Math.min(first.length, second.length); index += 1) {
-    if (first[index] !== second[index]) count += 1;
-  }
-  return count;
-}
-
 /**
  * The outcome of a SHA-256 integrity check: a Match / Mismatch /
- * Earlier version verdict and both hashes side by side, with every differing
- * character highlighted so a mismatch is visible at a glance.
+ * Earlier version verdict and both hashes side by side in boxes coloured by
+ * the verdict.
  */
 export default function HashComparison({
   verdict,
@@ -50,8 +29,6 @@ export default function HashComparison({
   recordedLabel?: string;
 }) {
   const style = VERDICT[verdict];
-  const highlight = verdict !== 'match' && Boolean(recordedHash);
-  const differences = highlight && recordedHash ? countDifferences(checkedHash, recordedHash) : 0;
 
   return (
     <div className={styles.result} role="status" aria-live="polite">
@@ -66,21 +43,16 @@ export default function HashComparison({
       <div className={styles.hashes}>
         <div className={`${styles.hashBox} ${style.boxClass}`}>
           <span className={styles.hashLabel}>{checkedLabel}</span>
-          <HashText value={checkedHash} other={recordedHash} highlight={highlight} />
+          <code className={styles.hashValue}>{checkedHash}</code>
         </div>
         {recordedHash && (
           <div className={`${styles.hashBox} ${style.boxClass}`}>
             <span className={styles.hashLabel}>{recordedLabel}</span>
-            <HashText value={recordedHash} other={checkedHash} highlight={highlight} />
+            <code className={styles.hashValue}>{recordedHash}</code>
           </div>
         )}
       </div>
 
-      {differences > 0 && (
-        <p className={styles.diffNote}>
-          {differences} of {Math.max(checkedHash.length, recordedHash?.length ?? 0)} characters differ (highlighted). Changing even one character of a file changes its whole hash.
-        </p>
-      )}
     </div>
   );
 }
