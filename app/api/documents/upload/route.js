@@ -6,7 +6,7 @@ import { requireWorkspaceMember, rbacErrorResponse } from '../../../../lib/rbacM
 import { sha256Hex } from '../../../../lib/documentHash';
 import { logDocumentAuditEvent } from '../../../../lib/auditLog';
 import { INCOMING_PREFIX, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, UPLOAD_BUCKETS } from '../../../../lib/uploadLimits';
-import { parseTags, validateIndexFields } from '../../../../lib/documentIndexing';
+import { INDEX_LIMITS, parseTags, validateIndexFields } from '../../../../lib/documentIndexing';
 
 async function insertDocumentRecord(supabaseAdmin, payload) {
   async function adaptiveInsert(baseCandidate) {
@@ -46,6 +46,7 @@ async function insertDocumentRecord(supabaseAdmin, payload) {
       sha256_hash: payload.sha256Hash,
       case_number: payload.caseNumber,
       tags: payload.tags,
+      author_name: payload.authorName,
       created_at: recordTimestamp,
     },
     {
@@ -121,9 +122,20 @@ export async function POST(request) {
     // Indexing metadata entered at upload (§1.5.2(4)); both are optional.
     let caseNumber = String(body?.caseNumber || '').trim() || null;
     const tags = parseTags(body?.tags);
+    // Authorship: the uploader by default, otherwise a name they must type in.
+    const isAuthor = body?.isAuthor !== false;
+    const authorName = isAuthor
+      ? String(profile.full_name || user.user_metadata?.full_name || profile.email || user.email || '').trim()
+      : String(body?.authorName || '').trim();
 
     if (!title) {
       return NextResponse.json({ error: 'Document title is required.' }, { status: 400 });
+    }
+    if (!isAuthor && !authorName) {
+      return NextResponse.json({ error: "Please enter the author's name." }, { status: 400 });
+    }
+    if (authorName.length > INDEX_LIMITS.authorName) {
+      return NextResponse.json({ error: `Author name must be at most ${INDEX_LIMITS.authorName} characters.` }, { status: 400 });
     }
     const indexProblem = validateIndexFields({ caseNumber: caseNumber ?? '', tags });
     if (indexProblem) {
@@ -191,6 +203,7 @@ export async function POST(request) {
       sha256Hash,
       caseNumber,
       tags,
+      authorName: authorName || null,
     });
 
     if (insertResult.error || !insertResult.data) {
@@ -213,7 +226,7 @@ export async function POST(request) {
         documentId,
         actorUserId: user.id,
         eventType: 'document_uploaded',
-        details: { title, case_id: caseId, case_number: caseNumber, tags, role: profile.role, sha256_hash: sha256Hash, hash_verified: 'browser_and_server', size_bytes: bytes.length },
+        details: { title, case_id: caseId, case_number: caseNumber, tags, author_name: authorName || null, uploader_is_author: isAuthor, role: profile.role, sha256_hash: sha256Hash, hash_verified: 'browser_and_server', size_bytes: bytes.length },
       }).catch((failure) => console.error('[audit] Unable to record draft creation:', failure));
     }
 

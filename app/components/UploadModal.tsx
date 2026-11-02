@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { uploadDocument, validateUploadFile } from '../../lib/uploadDocumentClient';
 import styles from '../../styles/dashboard.module.css';
+import AuthorshipField from './AuthorshipField';
 
 type DashboardDocument = {
   id: string | null;
@@ -28,6 +29,8 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
   const [title, setTitle] = useState('');
   const [caseNumber, setCaseNumber] = useState('');
   const [tags, setTags] = useState('');
+  const [isAuthor, setIsAuthor] = useState(true);
+  const [authorName, setAuthorName] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -45,6 +48,12 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
     if (!title.trim()) {
       setError(true);
       setMessage('Please enter a document title.');
+      return;
+    }
+
+    if (!isAuthor && !authorName.trim()) {
+      setError(true);
+      setMessage("Please enter the author's name.");
       return;
     }
 
@@ -72,7 +81,7 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
     let uploadedDocument;
     let sha256: string;
     try {
-      ({ document: uploadedDocument, sha256Hash: sha256 } = await uploadDocument(supabase, { file, title: title.trim(), caseNumber, tags }));
+      ({ document: uploadedDocument, sha256Hash: sha256 } = await uploadDocument(supabase, { file, title: title.trim(), caseNumber, tags, isAuthor, authorName: authorName.trim() }));
     } catch (failure) {
       setBusy(false);
       setError(true);
@@ -99,6 +108,8 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
     setTitle('');
     setCaseNumber('');
     setTags('');
+    setIsAuthor(true);
+    setAuthorName('');
     setFile(null);
 
     // Open the new document straight away so the next step (assigning signers) starts immediately.
@@ -153,6 +164,15 @@ export default function UploadModal({ open, onClose, onUploaded, redirectOnUploa
               placeholder="for ex. deed of sale, land title"
             />
           </label>
+
+          <AuthorshipField
+            isAuthor={isAuthor}
+            authorName={authorName}
+            onIsAuthorChange={setIsAuthor}
+            onAuthorNameChange={setAuthorName}
+            labelClassName={styles.modalLabel}
+            inputClassName={styles.modalInput}
+          />
 
           <label className={styles.modalLabel}>
             PDF file

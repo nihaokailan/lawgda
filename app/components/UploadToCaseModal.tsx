@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { sha256OfFile, uploadDocument, validateUploadFile } from '../../lib/uploadDocumentClient';
 import styles from '../../styles/dashboard.module.css';
+import AuthorshipField from './AuthorshipField';
 
 type UploadToCaseModalProps = {
   open: boolean;
@@ -19,6 +20,8 @@ export default function UploadToCaseModal({ open, caseId, caseNumber, onClose, o
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
+  const [isAuthor, setIsAuthor] = useState(true);
+  const [authorName, setAuthorName] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [fileHash, setFileHash] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,6 +64,12 @@ export default function UploadToCaseModal({ open, caseId, caseNumber, onClose, o
       return;
     }
 
+    if (!isAuthor && !authorName.trim()) {
+      setError(true);
+      setMessage("Please enter the author's name.");
+      return;
+    }
+
     if (!file) {
       setError(true);
       setMessage('Please choose a PDF file.');
@@ -89,7 +98,7 @@ export default function UploadToCaseModal({ open, caseId, caseNumber, onClose, o
 
     let uploadedDocument;
     try {
-      ({ document: uploadedDocument } = await uploadDocument(supabase, { file, title: title.trim(), caseId, sha256Hash: fileHash, tags }));
+      ({ document: uploadedDocument } = await uploadDocument(supabase, { file, title: title.trim(), caseId, sha256Hash: fileHash, tags, isAuthor, authorName: authorName.trim() }));
     } catch (failure) {
       setBusy(false);
       setError(true);
@@ -102,6 +111,8 @@ export default function UploadToCaseModal({ open, caseId, caseNumber, onClose, o
     setBusy(false);
     setTitle('');
     setTags('');
+    setIsAuthor(true);
+    setAuthorName('');
     setFile(null);
     setFileHash('');
     onUploaded();
@@ -148,6 +159,15 @@ export default function UploadToCaseModal({ open, caseId, caseNumber, onClose, o
               placeholder="for ex. deed of sale, land title"
             />
           </label>
+
+          <AuthorshipField
+            isAuthor={isAuthor}
+            authorName={authorName}
+            onIsAuthorChange={setIsAuthor}
+            onAuthorNameChange={setAuthorName}
+            labelClassName={styles.modalLabel}
+            inputClassName={styles.modalInput}
+          />
 
           <label className={styles.modalLabel}>
             PDF File

@@ -5,12 +5,15 @@ import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '../../lib/supabase/client';
 import { uploadDocument, validateUploadFile } from '../../lib/uploadDocumentClient';
 import shared from '../../styles/shared.module.css';
+import AuthorshipField from '../components/AuthorshipField';
 
 export default function UploadDocument() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [caseNumber, setCaseNumber] = useState('');
   const [tags, setTags] = useState('');
+  const [isAuthor, setIsAuthor] = useState(true);
+  const [authorName, setAuthorName] = useState('');
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -39,6 +42,12 @@ export default function UploadDocument() {
       return;
     }
 
+    if (!isAuthor && !authorName.trim()) {
+      setError(true);
+      setMessage("Please enter the author's name.");
+      return;
+    }
+
     const fileProblem = validateUploadFile(file);
     if (fileProblem) {
       setError(true);
@@ -62,7 +71,7 @@ export default function UploadDocument() {
 
     let payload;
     try {
-      const result = await uploadDocument(supabase, { file, title: title.trim(), caseNumber, tags });
+      const result = await uploadDocument(supabase, { file, title: title.trim(), caseNumber, tags, isAuthor, authorName: authorName.trim() });
       setHash(result.sha256Hash);
       payload = result;
     } catch (failure) {
@@ -77,6 +86,8 @@ export default function UploadDocument() {
     setTitle('');
     setCaseNumber('');
     setTags('');
+    setIsAuthor(true);
+    setAuthorName('');
     setFile(null);
     setMessage('Document uploaded and hashed successfully.');
 
@@ -122,6 +133,15 @@ export default function UploadDocument() {
             placeholder="for ex. deed of sale, land title"
           />
         </label>
+
+        <AuthorshipField
+          isAuthor={isAuthor}
+          authorName={authorName}
+          onIsAuthorChange={setIsAuthor}
+          onAuthorNameChange={setAuthorName}
+          labelClassName={shared.fieldLabel}
+          inputClassName={shared.input}
+        />
 
         <label className={shared.fieldLabel}>
           PDF file

@@ -1,0 +1,30 @@
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+}
+
+.options {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.option input {
+  accent-color: var(--crimson, #6a0f1a);
+  margin: 0;
+}

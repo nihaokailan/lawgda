@@ -181,7 +181,7 @@ export async function POST(request, { params }) {
 
   const { data: document, error: documentError } = await supabaseAdmin
     .from('documents')
-    .select('id,bucket,path,file_path,storage_path,metadata')
+    .select('id,bucket,path,file_path,storage_path,metadata,author_name')
     .eq('id', signingRequest.document_id)
     .single();
 
@@ -312,6 +312,7 @@ export async function POST(request, { params }) {
       signaturePageIndex: metadata.signature_page_index,
       signatureCount: existingHashChain.length,
       verificationQrDataUrl,
+      authorName: document.author_name || '',
     });
     signedPdf = signingResult.pdfBytes;
     metadata.signature_page_index = signingResult.signaturePageIndex;
