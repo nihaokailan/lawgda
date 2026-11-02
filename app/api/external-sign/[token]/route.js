@@ -181,13 +181,22 @@ export async function POST(request, { params }) {
 
   const { data: document, error: documentError } = await supabaseAdmin
     .from('documents')
-    .select('id,bucket,path,file_path,storage_path,metadata,author_name')
+    .select('id,bucket,path,file_path,storage_path,metadata')
     .eq('id', signingRequest.document_id)
     .single();
 
   if (documentError || !document) {
     return NextResponse.json({ error: 'Requested document was not found.' }, { status: 404 });
   }
+
+  // Read separately so signing still works on a database without the
+  // author_name column (migration 027); the page then just omits the author.
+  const { data: authorRow } = await supabaseAdmin
+    .from('documents')
+    .select('author_name')
+    .eq('id', signingRequest.document_id)
+    .maybeSingle();
+  const authorName = String(authorRow?.author_name || '').trim();
 
   const metadata = document.metadata && typeof document.metadata === 'object' && !Array.isArray(document.metadata)
     ? document.metadata
@@ -312,7 +321,7 @@ export async function POST(request, { params }) {
       signaturePageIndex: metadata.signature_page_index,
       signatureCount: existingHashChain.length,
       verificationQrDataUrl,
-      authorName: document.author_name || '',
+      authorName,
     });
     signedPdf = signingResult.pdfBytes;
     metadata.signature_page_index = signingResult.signaturePageIndex;
