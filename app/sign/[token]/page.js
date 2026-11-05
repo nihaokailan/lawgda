@@ -19,6 +19,17 @@ async function readApiPayload(response) {
   };
 }
 
+async function fetchDocumentBytes(reviewUrl) {
+  // Accept only a real PDF: hashing or showing an error response would be wrong.
+  const response = await fetch(reviewUrl, { cache: 'no-store' });
+  const contentType = response.headers.get('content-type') || '';
+  if (!response.ok || !contentType.includes('application/pdf')) {
+    const failure = await readApiPayload(response).catch(() => ({}));
+    throw new Error(failure?.error || `Unable to load the document (HTTP ${response.status}).`);
+  }
+  return response.arrayBuffer();
+}
+
 export default function ExternalSignerPage({ params }) {
   const token = params?.token;
   const [loading, setLoading] = useState(true);
@@ -41,6 +52,15 @@ export default function ExternalSignerPage({ params }) {
   const [certificateDetails, setCertificateDetails] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [previewingCertificate, setPreviewingCertificate] = useState(false);
+  // The document is fetched once and kept in the browser: the preview and the
+  // Review button show these exact bytes, and they are what gets hashed and
+  // signed, so the signer signs precisely what they reviewed.
+  const [reviewFileUrl, setReviewFileUrl] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewAttempt, setReviewAttempt] = useState(0);
+  const reviewBytesRef = useRef(null);
+  useEffect(() => () => { if (reviewFileUrl) URL.revokeObjectURL(reviewFileUrl); }, [reviewFileUrl]);
   const signatureCanvasRef = useRef(null);
   const drawingRef = useRef(false);
 
@@ -172,15 +192,9 @@ export default function ExternalSignerPage({ params }) {
     }
   }
 
-  async function computeDocumentHash(reviewUrl) {
-    // Hash only a real PDF: hashing an error response would always mismatch.
-    const response = await fetch(reviewUrl, { cache: 'no-store' });
-    const contentType = response.headers.get('content-type') || '';
-    if (!response.ok || !contentType.includes('application/pdf')) {
-      const failure = await readApiPayload(response).catch(() => ({}));
-      throw new Error(failure?.error || `Unable to load the document (HTTP ${response.status}).`);
-    }
-    const buffer = await response.arrayBuffer();
+  async function computeDocumentHash() {
+    const buffer = reviewBytesRef.current;
+    if (!buffer) throw new Error('The document has not loaded yet. Review it above before signing.');
     const digest = await crypto.subtle.digest('SHA-256', buffer);
     return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, '0')).join('');
   }
@@ -205,6 +219,27 @@ export default function ExternalSignerPage({ params }) {
   useEffect(() => {
     loadRequest();
   }, [loadRequest]);
+
+  const reviewUrl = payload?.document?.reviewUrl || '';
+  useEffect(() => {
+    if (!reviewUrl) return undefined;
+    let cancelled = false;
+    setReviewLoading(true);
+    setReviewError('');
+    fetchDocumentBytes(reviewUrl)
+      .then((buffer) => {
+        if (cancelled) return;
+        reviewBytesRef.current = buffer;
+        setReviewFileUrl(URL.createObjectURL(new Blob([buffer], { type: 'application/pdf' })));
+      })
+      .catch((loadError) => {
+        if (!cancelled) setReviewError(loadError instanceof Error ? loadError.message : 'Unable to load the document.');
+      })
+      .finally(() => {
+        if (!cancelled) setReviewLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [reviewUrl, reviewAttempt]);
 
   // Email one-time code: proves the signer controls the assigned inbox.
   async function callVerify(body) {
@@ -289,7 +324,7 @@ export default function ExternalSignerPage({ params }) {
 
     let documentHash = '';
     try {
-      documentHash = await computeDocumentHash(payload.document.reviewUrl);
+      documentHash = await computeDocumentHash();
     } catch (hashError) {
       setSigning(false);
       setError(`Unable to compute the document hash in your browser: ${hashError instanceof Error ? hashError.message : 'unknown error'}`);
@@ -366,7 +401,7 @@ export default function ExternalSignerPage({ params }) {
             <BackButton className={shared.linkButton} fallbackHref="/landing" />
           </header>
 
-          <div className={shared.sectionCard}>
+          <div className={shared.sectionCard} style={{ overflowWrap: 'anywhere' }}>
             {loading && <p className={shared.helpText}>Loading signing request...</p>}
             {!loading && error && !payload && <p className={`${shared.message} ${shared.messageError}`}>{error}</p>}
             {!loading && payload && (
@@ -427,14 +462,32 @@ export default function ExternalSignerPage({ params }) {
 
                 {payload.document.reviewUrl && (
                   <div style={{ marginTop: '1rem' }}>
-                    <iframe
-                      title="Document preview"
-                      src={payload.document.reviewUrl}
-                      style={{ width: '100%', minHeight: '560px', border: '1px solid #dfe4ef', background: '#fff', borderRadius: '12px' }}
-                    />
-                    <div className={shared.buttonGroup} style={{ marginTop: '1rem' }}>
-                      <a href={payload.document.reviewUrl} target="_blank" rel="noreferrer" className={shared.button}>Review Document</a>
-                    </div>
+                    {reviewLoading && <p className={shared.helpText}>Loading document...</p>}
+                    {!reviewLoading && reviewError && (
+                      <div className={`${shared.message} ${shared.messageError}`} role="alert">
+                        <p style={{ margin: 0 }}>Unable to show the document: {reviewError}</p>
+                        <button type="button" className={shared.textButton} style={{ marginTop: '0.5rem' }} onClick={() => setReviewAttempt((attempt) => attempt + 1)}>
+                          Try again
+                        </button>
+                      </div>
+                    )}
+                    {!reviewLoading && (signedUrl || reviewFileUrl) && (
+                      <>
+                        <iframe
+                          title="Document preview"
+                          src={signedUrl || reviewFileUrl}
+                          style={{ display: 'block', width: '100%', height: 'min(75vh, 900px)', minHeight: '360px', border: '1px solid #dfe4ef', background: '#fff', borderRadius: '12px' }}
+                        />
+                        <p className={shared.helpText} style={{ margin: '0.5rem 0 0' }}>
+                          Preview blank or showing only one page on your phone? Tap Review Document to open the full PDF.
+                        </p>
+                        <div className={shared.buttonGroup} style={{ marginTop: '1rem' }}>
+                          <a href={signedUrl || reviewFileUrl} target="_blank" rel="noreferrer" className={shared.button} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                            Review Document
+                          </a>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -454,7 +507,7 @@ export default function ExternalSignerPage({ params }) {
 
                     <div className={shared.fieldLabel}>
                       How would you like to sign?
-                      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.4rem' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 0.75rem', marginTop: '0.4rem' }}>
                         <label>
                           <input
                             type="radio"
@@ -482,7 +535,7 @@ export default function ExternalSignerPage({ params }) {
                       <>
                         <div className={shared.fieldLabel}>
                           Signature source
-                          <div style={{ display: 'flex', gap: '1rem' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1rem' }}>
                             <label><input type="radio" name="signatureInput" checked={signatureInput === 'draw'} disabled={signing} onChange={() => changeSignatureInput('draw')} /> Signature pad</label>
                             <label><input type="radio" name="signatureInput" checked={signatureInput === 'upload'} disabled={signing} onChange={() => changeSignatureInput('upload')} /> Upload photo</label>
                           </div>
