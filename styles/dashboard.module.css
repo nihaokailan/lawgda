@@ -837,6 +837,11 @@
   border-right: 0;
 }
 
+/* Users without a firm have no Filed step: three status cards. */
+.metricsGridNoFiled {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .metricCard:hover {
   transform: none;
   background: #fdfcfb;
@@ -1258,6 +1263,19 @@
 
   .metricCard:nth-last-child(-n + 2) {
     border-bottom: 0;
+  }
+
+  .metricsGridNoFiled {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metricsGridNoFiled .metricCard:nth-child(2) {
+    border-bottom: 1px solid #f0ece8;
+  }
+
+  .metricsGridNoFiled .metricCard:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
   }
 
   .dashboardAside {

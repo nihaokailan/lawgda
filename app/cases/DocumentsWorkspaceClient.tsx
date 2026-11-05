@@ -55,9 +55,10 @@ function formatDate(value: string | null) {
   });
 }
 
-function matchesFilter(filter: string, row: DocumentRow) {
+function matchesFilter(filter: string, row: DocumentRow, showFiled = true) {
   if (filter === 'All Documents') return true;
   if (filter === 'Pending Signatures') return row.status === 'Pending';
+  if (!showFiled && filter === 'Signed') return row.status === 'Signed' || row.status === 'Filed';
   return row.status === filter;
 }
 
@@ -80,10 +81,13 @@ export default function DocumentsWorkspaceClient({
   documents,
   folders = [],
   canCreateFolders = false,
+  showFiled = true,
 }: {
   documents: DocumentRow[];
   folders?: FolderRow[];
   canCreateFolders?: boolean;
+  // False for users without a firm: their documents end at Signed.
+  showFiled?: boolean;
 }) {
   const router = useRouter();
   useEffect(() => { rememberDocumentOrigin('/cases'); }, []);
@@ -111,16 +115,17 @@ export default function DocumentsWorkspaceClient({
     };
 
     visibleDocuments.forEach((row) => {
-      if (row.status !== 'Pending' && counts[row.status] !== undefined) {
-        counts[row.status] += 1;
+      const status = !showFiled && row.status === 'Filed' ? 'Signed' : row.status;
+      if (status !== 'Pending' && counts[status] !== undefined) {
+        counts[status] += 1;
       }
-      if (row.status === 'Pending') {
+      if (status === 'Pending') {
         counts['Pending Signatures'] += 1;
       }
     });
 
     return counts;
-  }, [visibleDocuments]);
+  }, [visibleDocuments, showFiled]);
 
   // Like a drive: the top level shows folders, then documents not in a folder.
   // A status filter or a search looks inside folders too.
@@ -130,7 +135,7 @@ export default function DocumentsWorkspaceClient({
     const q = query.trim().toLowerCase();
     const matchingDocuments = visibleDocuments.filter((row) => {
       if (browsingTopLevel && row.folderId) return false;
-      if (!matchesFilter(filter, row)) return false;
+      if (!matchesFilter(filter, row, showFiled)) return false;
       if (!q) return true;
       // Indexing: staff-entered title, case number and tags are all searchable.
       return matchesIndexQuery(row, q)
@@ -146,7 +151,7 @@ export default function DocumentsWorkspaceClient({
       ...matchingFolders.map((folder) => ({ kind: 'folder' as const, folder })),
       ...matchingDocuments.map((document) => ({ kind: 'document' as const, document })),
     ];
-  }, [visibleDocuments, folders, folderTitles, filter, query, browsingTopLevel]);
+  }, [visibleDocuments, folders, folderTitles, filter, query, browsingTopLevel, showFiled]);
 
   useEffect(() => {
     setPage(1);
@@ -225,7 +230,7 @@ export default function DocumentsWorkspaceClient({
       </header>
 
       <div className={styles.summaryRow} role="group" aria-label="Filter documents by status">
-        {FILTERS.map((item) => (
+        {FILTERS.filter((item) => showFiled || item !== 'Filed').map((item) => (
           <button
             key={`summary-${item}`}
             type="button"

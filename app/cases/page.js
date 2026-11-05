@@ -197,7 +197,7 @@ export default async function CasesPage() {
       subtitle="Search, open and track your documents."
     >
       <RealtimeRefresh />
-      <DocumentsWorkspaceClient documents={documents} folders={folderRows} canCreateFolders={canUseFolders} />
+      <DocumentsWorkspaceClient documents={documents} folders={folderRows} canCreateFolders={canUseFolders} showFiled={Boolean(profile.org_id)} />
     </WorkspaceShell>
   );
 }

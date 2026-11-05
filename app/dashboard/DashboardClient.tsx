@@ -73,12 +73,15 @@ export default function DashboardClient({
   initialActivity,
   activityUnavailable,
   userName,
+  showFiled = true,
 }: {
   initialDocuments: DashboardDocument[];
   initialMetrics: DashboardMetrics;
   initialActivity: DashboardActivity[];
   activityUnavailable: boolean;
   userName: string;
+  // False for users without a firm: their documents end at Signed.
+  showFiled?: boolean;
 }) {
   const router = useRouter();
   useEffect(() => { rememberDocumentOrigin('/dashboard'); }, []);
@@ -140,7 +143,7 @@ export default function DashboardClient({
           </div>
         </section>
 
-        <section className={styles.metricsGrid} aria-label="Document status summary">
+        <section className={`${styles.metricsGrid} ${showFiled ? '' : styles.metricsGridNoFiled}`} aria-label="Document status summary">
           <article className={styles.metricCard}>
             <div className={styles.metricHeading}><span className={styles.metricDotGray} />Drafting</div>
             <h3 className={styles.metricValue}>{metrics.Drafting}</h3>
@@ -156,11 +159,13 @@ export default function DashboardClient({
             <h3 className={styles.metricValue}>{metrics.Signed}</h3>
             <p className={styles.metricDescription}>Signature completed</p>
           </article>
-          <article className={styles.metricCard}>
-            <div className={styles.metricHeading}><span className={styles.metricDotBlue} />Filed</div>
-            <h3 className={styles.metricValue}>{metrics.Filed}</h3>
-            <p className={styles.metricDescription}>Filed for safekeeping</p>
-          </article>
+          {showFiled && (
+            <article className={styles.metricCard}>
+              <div className={styles.metricHeading}><span className={styles.metricDotBlue} />Filed</div>
+              <h3 className={styles.metricValue}>{metrics.Filed}</h3>
+              <p className={styles.metricDescription}>Filed for safekeeping</p>
+            </article>
+          )}
         </section>
 
         <div className={`${styles.dashboardColumns} ${!showAttention && !showActivity ? styles.dashboardColumnsFull : ''}`}>

@@ -174,6 +174,13 @@ async function loadDashboardData(userId: string, orgId: string | null, email: st
     metrics[normalizeStatus(record.status)] += 1;
   });
 
+  // Filing is a firm step. A user without a firm only reaches Signed; a firm's
+  // document they signed and the firm later filed still counts as Signed.
+  if (!orgId) {
+    metrics.Signed += metrics.Filed;
+    metrics.Filed = 0;
+  }
+
   const documentTitles = new Map(
     recentDocuments.filter((document) => document.id).map((document) => [document.id as string, document.title])
   );
@@ -244,6 +251,7 @@ export default async function DashboardPage() {
         initialActivity={activity}
         activityUnavailable={activityUnavailable}
         userName={userName}
+        showFiled={Boolean(profile.org_id)}
       />
     </WorkspaceShell>
   );
