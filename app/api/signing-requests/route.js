@@ -55,7 +55,8 @@ export async function POST(request) {
   let user;
   let profile;
   try {
-    ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
+    // A default (Normal) user may send their own personal documents for signature.
+    ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF, ROLES.NORMAL]));
   } catch (error) {
     return rbacErrorResponse(error);
   }
@@ -88,6 +89,10 @@ export async function POST(request) {
 
   if (signerType === 'internal' && !internalSignerId) {
     return NextResponse.json({ error: 'Internal signer ID is required for internal signers.' }, { status: 400 });
+  }
+
+  if (signerType === 'internal' && !profile.org_id) {
+    return NextResponse.json({ error: 'Internal signers are only available inside an organization.' }, { status: 400 });
   }
 
   let document;

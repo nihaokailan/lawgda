@@ -13,7 +13,7 @@ import { INCOMING_PREFIX, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL, UPLOAD_BUCKETS } f
 export async function POST(request) {
   let user;
   try {
-    ({ user } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
+    ({ user } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF, ROLES.NORMAL]));
   } catch (error) {
     return rbacErrorResponse(error);
   }

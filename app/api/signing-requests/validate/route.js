@@ -11,7 +11,7 @@ import { findStaffEmails, STAFF_SIGNER_MESSAGE } from '../../../../lib/staffSign
  */
 export async function POST(request) {
   try {
-    await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]);
+    await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF, ROLES.NORMAL]);
   } catch (error) {
     return rbacErrorResponse(error);
   }

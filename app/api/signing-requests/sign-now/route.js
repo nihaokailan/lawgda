@@ -9,8 +9,9 @@ import { logDocumentAuditEvent } from '../../../../lib/auditLog';
 import { setSignerSessionCookie, startSignerSession } from '../../../../lib/signerVerification';
 
 /**
- * Lets a Lawyer start signing from inside Lawgda instead of the emailed link.
- * It only works on the Lawyer's turn, and it replaces the request's signing
+ * Lets a Lawyer (or a default Normal user) start signing from inside Lawgda
+ * instead of the emailed link. It only works on the user's own signing turn,
+ * and it replaces the request's signing
  * token — so the emailed link stops working. A request can therefore be
  * completed through exactly one entry point, and once signed neither works.
  */
@@ -18,7 +19,7 @@ async function handle(request) {
   let user;
   let profile;
   try {
-    ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER]));
+    ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.NORMAL]));
   } catch (error) {
     return rbacErrorResponse(error);
   }
@@ -67,7 +68,7 @@ async function handle(request) {
     details: { signing_request_id: turn.requestId },
   }).catch((failure) => console.error('[audit] Unable to record in-app signing start:', failure));
 
-  // The Lawyer is already signed in as this signer, so no email code is needed.
+  // The user is already signed in as this signer, so no email code is needed.
   const sessionToken = await startSignerSession(admin, turn.requestId);
   return setSignerSessionCookie(
     NextResponse.json({ url: `/sign/${encodeURIComponent(token)}` }, { headers: { 'Cache-Control': 'no-store' } }),

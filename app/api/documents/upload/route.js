@@ -103,12 +103,13 @@ export async function POST(request) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
 
-    // Only firm Lawyers/Staff upload; neither admin tier may place documents
-    // (and thereby gain access to their content) in the repository.
+    // Firm Lawyers/Staff upload into their firm; a default (Normal) user with
+    // no firm uploads a personal document (org_id stays null). Neither admin
+    // tier may place documents (and thereby gain access to their content).
     let user;
     let profile;
     try {
-      ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF]));
+      ({ user, profile } = await requireWorkspaceMember([ROLES.LAWYER, ROLES.STAFF, ROLES.NORMAL]));
     } catch (error) {
       return rbacErrorResponse(error);
     }
@@ -150,8 +151,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid upload reference.' }, { status: 400 });
     }
 
+    if (caseId && !profile.org_id) {
+      // Case folders belong to a firm; a user without one cannot file into them.
+      await supabaseAdmin.storage.from(bucket).remove([incomingPath]);
+      return NextResponse.json({ error: 'Case not found.' }, { status: 404 });
+    }
     if (caseId) {
-      // Only a folder of the uploader's own firm (the caller is already a firm Lawyer/Staff).
+      // Only a folder of the uploader's own firm.
       const { data: caseRow } = UUID_ONLY.test(caseId)
         ? await supabaseAdmin.from('cases').select('id,org_id,case_number').eq('id', caseId).maybeSingle()
         : { data: null };
