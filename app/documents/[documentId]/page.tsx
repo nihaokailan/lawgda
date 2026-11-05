@@ -83,7 +83,7 @@ export default async function DocumentViewPage({ params }: { params: { documentI
         title={String(document.title || document.filename || 'Untitled document')}
         caseNumber={document.case_number ?? null}
         tags={Array.isArray(document.tags) ? document.tags : []}
-        canEdit={profile.role === ROLES.LAWYER || profile.role === ROLES.STAFF}
+        canEdit={(profile.role === ROLES.LAWYER || profile.role === ROLES.STAFF) && (Boolean(document.org_id) || isDocumentOwner || document.uploaded_by === user.id)}
         locked={document.status === 'Filed'}
         caseNumberFromCase={Boolean(document.case_id)}
         status={normalizeStatus(document.status)}

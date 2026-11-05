@@ -84,7 +84,7 @@ export default function WorkspaceSidebar({ role, dashboard = false }) {
     {
       href: '/cases',
       label: 'Documents',
-      permissions: [PERMISSIONS.MANAGE_ASSIGNED_DOCUMENTS, PERMISSIONS.ORGANIZE_DOCUMENTS],
+      roles: ['normal', 'lawyer', 'staff'],
     },
     {
       href: '/profile',

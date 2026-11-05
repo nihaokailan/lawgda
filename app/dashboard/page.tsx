@@ -108,11 +108,11 @@ async function ensureStorageBackfillForUser(supabase: ReturnType<typeof createSu
   }));
 }
 
-async function loadDashboardData(userId: string, orgId: string | null, email: string | null) {
+async function loadDashboardData(userId: string, orgId: string | null, email: string | null, role: string | null) {
   const supabase = createSupabaseServerClient();
   const supabaseAdmin = getSupabaseAdmin();
   // Shared documents don't depend on the backfill, so load them alongside it.
-  const sharedDocumentsPromise = loadDocumentsSharedWithUser(supabaseAdmin, userId, orgId);
+  const sharedDocumentsPromise = loadDocumentsSharedWithUser(supabaseAdmin, userId, orgId, email, role);
   await ensureStorageBackfillForUser(supabase, userId);
   let docsResult = await supabase
     .from('documents')
@@ -223,7 +223,8 @@ export default async function DashboardPage() {
   const { metrics, recentDocuments, activity, activityUnavailable } = await loadDashboardData(
     user.id,
     profile.org_id ?? null,
-    user.email ?? null
+    user.email ?? null,
+    profile.role ?? null
   );
   const userName = getFirstName(profile.full_name, user.email);
 

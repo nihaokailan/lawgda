@@ -1,4 +1,5 @@
 import { loadDocumentAuditHistory } from '../../../lib/documentAuditHistory';
+import { enrichAuditEntries } from '../../../lib/auditPresentation';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,9 +42,17 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
   } catch {
     // Missing data must never be presented as a verified empty chain.
   }
+  // Who did what: names, emails and roles for each recorded event.
+  let entries: Awaited<ReturnType<typeof enrichAuditEntries>> = [];
+  if (history) {
+    try {
+      entries = await enrichAuditEntries(supabase, history.events);
+    } catch {
+      history = null;
+    }
+  }
   const integrity = history?.valid ?? null;
   const hasUploadEvent = history?.events.some((event) => ['document_uploaded', 'uploaded', 'document_created'].includes(event.event_type));
-  const eventLabel = (value: string) => value.replace(/_/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
 
   return (
     <main className={shell.shell}>
@@ -81,15 +90,23 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
                     <p className={shared.helpText}>From the document creation record; not part of the verified audit chain.</p>
                   </li>
                 )}
-                {history.events.map((event) => {
-                  const details = getMetadata(event.details);
+                {history.events.map((event, index) => {
+                  const entry = entries[index];
                   return (
-                    <li key={event.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--border)' }}>
-                      <strong>{eventLabel(event.event_type)}</strong>
-                      <p className={shared.helpText}>{formatDate(event.created_at)}</p>
-                      {event.event_type === 'status_changed' && <p className={shared.helpText}>{String(details.from || '—')} → {String(details.to || '—')}</p>}
-                      {event.event_type === 'document_viewed' && details.context === 'audit_trail_view' && <p className={shared.helpText}>Audit trail viewed</p>}
-                      {!event.record_hash && <p className={shared.helpText}>Historical event — no verification hash recorded</p>}
+                    <li key={event.id} style={{ padding: '0.75rem 0', borderBottom: '1px solid var(--border)', overflowWrap: 'anywhere' }}>
+                      <strong>{entry.title}</strong>
+                      <p className={shared.cardText} style={{ marginTop: '0.25rem' }}>
+                        By <strong>{entry.actorName}</strong>
+                        {entry.actorEmail && <span> ({entry.actorEmail})</span>}
+                        <span> · {entry.actorRole}</span>
+                      </p>
+                      <p className={shared.helpText} style={{ margin: 0 }}>{formatDate(event.created_at)}</p>
+                      {entry.lines.length > 0 && (
+                        <ul className={shared.helpText} style={{ margin: '0.25rem 0 0', paddingLeft: '1.1rem' }}>
+                          {entry.lines.map((line) => <li key={line}>{line}</li>)}
+                        </ul>
+                      )}
+                      {!event.record_hash && <p className={shared.helpText} style={{ margin: 0 }}>Historical event — no verification hash recorded</p>}
                     </li>
                   );
                 })}
@@ -102,7 +119,7 @@ export default async function PublicAuditPage({ params }: { params: { auditToken
             {hashChain.length === 0 && <p className={shared.helpText}>No signature records are available.</p>}
             {hashChain.map((entry, index) => (
               <div key={String(entry.signing_request_id || index)} style={{ borderBottom: '1px solid var(--border)', padding: '0.85rem 0' }}>
-                <p className={shared.cardText}><strong>Signer {index + 1}:</strong> {String(entry.signer_name || '-')}</p>
+                <p className={shared.cardText}><strong>Signer {index + 1}:</strong> {String(entry.signer_name || '-')}{entry.signer_email ? ` (${String(entry.signer_email)})` : ''}</p>
                 <p className={shared.helpText}><strong>Signed:</strong> {formatDate(entry.signed_at)}</p>
                 <p className={shared.helpText} style={{ overflowWrap: 'anywhere' }}><strong>Pre-sign SHA-256:</strong> {String(entry.pre_sign_hash || '-')}</p>
                 <p className={shared.helpText} style={{ overflowWrap: 'anywhere' }}><strong>Post-sign SHA-256:</strong> {String(entry.post_sign_hash || '-')}</p>

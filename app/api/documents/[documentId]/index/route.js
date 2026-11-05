@@ -23,6 +23,12 @@ export async function PATCH(request, { params }) {
     return rbacErrorResponse(error);
   }
 
+  // Being a signer on someone's personal (firm-less) document lets a Lawyer
+  // view it, not edit its details.
+  if (!document.org_id && (document.owner_id ?? document.user_id) !== user.id && document.uploaded_by !== user.id) {
+    return NextResponse.json({ error: 'Only the document owner can edit these details.' }, { status: 403 });
+  }
+
   const body = await request.json().catch(() => ({}));
   const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
 

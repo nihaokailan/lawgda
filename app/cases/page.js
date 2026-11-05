@@ -121,7 +121,7 @@ export default async function CasesPage() {
   const canUseFolders = CASE_MANAGER_ROLES.includes(profile.role) && Boolean(profile.org_id);
   let [rawDocs, sharedDocs, folderRows, firmLawyerDocs] = await Promise.all([
     loadDocumentsForCasesPage(supabase),
-    loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id),
+    loadDocumentsSharedWithUser(getSupabaseAdmin(), user.id, profile.org_id, user.email, profile.role),
     canUseFolders ? loadFirmFolders(profile.org_id) : [],
     profile.role === 'staff' && profile.org_id ? loadFirmLawyerDocuments(profile.org_id) : [],
   ]);
